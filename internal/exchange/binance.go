@@ -141,8 +141,8 @@ func (b *Binance) Subscribe() {
 }
 
 func (b *Binance) calcProfitability(high, low *pair) float64 {
-	toStb := low.Price - high.Price*b.cfg.Binance.Fee
-	stbToStb := (toStb - toStb*b.cfg.Binance.Fee)
+	toStb := high.Price - high.Price*b.cfg.Binance.Fee
+	stbToStb := toStb - toStb*b.cfg.Binance.Fee
 	stbToC := stbToStb - stbToStb*b.cfg.Binance.Fee
 	return stbToC / low.Price
 }
