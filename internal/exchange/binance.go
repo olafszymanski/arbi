@@ -114,8 +114,7 @@ func (b *Binance) Subscribe() {
 			for {
 				_, data, err := conn.ReadMessage()
 				if err != nil {
-					log.Println("read:", err)
-					return
+					panic(err)
 				}
 
 				var res Result
