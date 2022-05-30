@@ -7,6 +7,13 @@ import (
 )
 
 type Config struct {
+	Database struct {
+		Host     string `yaml:"host"`
+		Username string `yaml:"username"`
+		Password string `yaml:"password"`
+		Name     string `yaml:"name"`
+		Driver   string `yaml:"driver"`
+	} `yaml:"database"`
 	Binance struct {
 		WebsocketScheme string  `yaml:"websocket_scheme"`
 		WebsocketHost   string  `yaml:"websocket_host"`
