@@ -26,7 +26,7 @@ func (p pairs) HighestLowest(crypto string) (pair, pair) {
 	var hPrc, lPrc float64
 	for _, pr := range p {
 		if crypto == pr.Crypto {
-			if hPrc < pr.Price {
+			if hPrc < pr.Price && strings.ToLower(pr.Stable) == "usdt" {
 				hCrp = pr.Crypto
 				hStb = pr.Stable
 				hPrc = pr.Price
@@ -131,7 +131,7 @@ func (b *Binance) Subscribe() {
 				high, low := b.prs.HighestLowest(pr.Crypto)
 				b.lock.Unlock()
 
-				if val := b.calcProfitability(&high, &low); val > b.cfg.Binance.MinProfit {
+				if val := b.calcProfitability(&high, &low); val > 0 {
 					fmt.Println(high, low, val)
 				}
 			}
@@ -141,7 +141,7 @@ func (b *Binance) Subscribe() {
 
 func (b *Binance) calcProfitability(high, low *pair) float64 {
 	toStb := high.Price - high.Price*b.cfg.Binance.Fee
-	stbToStb := toStb - toStb*b.cfg.Binance.Fee
+	stbToStb := (toStb - toStb*b.cfg.Binance.Fee) * b.cfg.Binance.Conversion
 	stbToC := stbToStb - stbToStb*b.cfg.Binance.Fee
 	return stbToC / low.Price
 }
