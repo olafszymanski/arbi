@@ -14,7 +14,11 @@ RUN go build -o arbi
 
 FROM alpine:latest
 
+RUN mkdir config
+
 COPY --from=build /src/arbi .
+
+COPY --from=build /src/config/config.yml ./config
 
 CMD ./arbi
 
