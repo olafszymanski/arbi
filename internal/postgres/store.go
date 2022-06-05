@@ -2,17 +2,31 @@ package postgres
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 	"github.com/olafszymanski/arbi/config"
 )
 
+type RecordPair struct {
+	Symbol string
+	Price  float64
+}
+
+type Record struct {
+	Low       RecordPair
+	High      RecordPair
+	Value     float64
+	Timestamp time.Time
+}
+
 type IStore interface {
-	CreateRecord(lowSymbol, highSymbol string, lowPrice, highPrice float64, timestamp int64) error
+	CreateRecord(r Record) error
 }
 
 type Store struct {
-	binance *BinanceStore
+	Binance *BinanceStore
 }
 
 func NewStore(cfg *config.Config) *Store {
@@ -22,6 +36,6 @@ func NewStore(cfg *config.Config) *Store {
 		panic(err)
 	}
 	return &Store{
-		binance: NewBinanceStore(db),
+		Binance: NewBinanceStore(db),
 	}
 }
