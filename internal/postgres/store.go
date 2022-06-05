@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/olafszymanski/arbi/cmd/config"
+	"github.com/olafszymanski/arbi/config"
 )
 
 type IStore interface {

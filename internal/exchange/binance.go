@@ -11,7 +11,7 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
-	"github.com/olafszymanski/arbi/cmd/config"
+	"github.com/olafszymanski/arbi/config"
 )
 
 type pair struct {

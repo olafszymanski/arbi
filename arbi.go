@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/olafszymanski/arbi/cmd/config"
+	"github.com/olafszymanski/arbi/config"
 	"github.com/olafszymanski/arbi/internal/exchange"
 )
 
