@@ -7,6 +7,9 @@ import (
 )
 
 type Config struct {
+	App struct {
+		UseDB int8 `yaml:"use_db"`
+	} `yaml:"app"`
 	Database struct {
 		Host     string `yaml:"host"`
 		Username string `yaml:"username"`
