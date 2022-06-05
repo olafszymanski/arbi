@@ -8,19 +8,19 @@ import (
 func main() {
 	cfg := config.NewConfig()
 	binance := exchange.NewBinance(cfg, map[string][]string{
-		"BTC": []string{
+		"BTC": {
 			"USDT",
 			"USDC",
 			"TUSD",
 			"DAI",
 		},
-		"ETH": []string{
+		"ETH": {
 			"USDT",
 			"USDC",
 			"TUSD",
 			"DAI",
 		},
-		"BNB": []string{
+		"BNB": {
 			"USDT",
 			"USDC",
 			"TUSD",
