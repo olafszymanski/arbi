@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/olafszymanski/arbi/config"
-	"github.com/olafszymanski/arbi/internal/exchange"
-	"github.com/olafszymanski/arbi/internal/postgres"
+	"github.com/olafszymanski/arbi/app/config"
+	"github.com/olafszymanski/arbi/app/internal/exchange"
+	"github.com/olafszymanski/arbi/app/internal/postgres"
 )
 
 func main() {

@@ -2,7 +2,7 @@ version: '3.9'
 
 services:
   arbi:
-    build: .
+    build: ./app
     container_name: arbi
     restart: always
     depends_on:

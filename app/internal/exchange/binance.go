@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/olafszymanski/arbi/config"
-	"github.com/olafszymanski/arbi/internal/postgres"
+	"github.com/olafszymanski/arbi/app/config"
+	"github.com/olafszymanski/arbi/app/internal/postgres"
 )
 
 type pair struct {
@@ -135,26 +135,25 @@ func (b *Binance) Subscribe() {
 				high, low := b.prs.HighestLowest(pr.Crypto)
 				b.lock.Unlock()
 
-				if val := b.calcProfitability(&high, &low); val > 0 {
-					fmt.Println(high, low, val)
-					if b.cfg.App.UseDB > 0 {
-						rec := postgres.Record{
-							Low: postgres.RecordPair{
-								Symbol: low.Crypto + low.Stable,
-								Price:  low.Price,
-							},
-							High: postgres.RecordPair{
-								Symbol: high.Crypto + high.Stable,
-								Price:  high.Price,
-							},
-							Value:     val,
-							Timestamp: time.Now(),
-						}
-						if err := b.store.Binance.CreateRecord(rec); err != nil {
-							panic(err)
-						}
-						time.Sleep(time.Second * 5)
+				val := b.calcProfitability(&high, &low)
+				fmt.Println(high, low, val)
+				if val > b.cfg.Binance.MinProfit && b.cfg.App.UseDB > 0 {
+					rec := postgres.Record{
+						Low: postgres.RecordPair{
+							Symbol: low.Crypto + low.Stable,
+							Price:  low.Price,
+						},
+						High: postgres.RecordPair{
+							Symbol: high.Crypto + high.Stable,
+							Price:  high.Price,
+						},
+						Value:     val,
+						Timestamp: time.Now(),
 					}
+					if err := b.store.Binance.CreateRecord(rec); err != nil {
+						panic(err)
+					}
+					time.Sleep(time.Second * 5)
 				}
 			}
 		}()

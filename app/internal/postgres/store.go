@@ -6,7 +6,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
-	"github.com/olafszymanski/arbi/config"
+	"github.com/olafszymanski/arbi/app/config"
 )
 
 type RecordPair struct {
@@ -35,6 +35,16 @@ func NewStore(cfg *config.Config) *Store {
 	if err != nil {
 		panic(err)
 	}
+	// db.MustExec(`
+	// CREATE TABLE records(
+	// 	lowSymbol VARCHAR(7),
+	// 	lowPrice float8,
+	// 	highSymbol VARCHAR(7),
+	// 	highPrice float8,
+	// 	value float8,
+	// 	timestamp TIMESTAMP
+	// )
+	// `)
 	return &Store{
 		Binance: NewBinanceStore(db),
 	}
