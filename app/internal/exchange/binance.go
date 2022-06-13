@@ -48,6 +48,7 @@ type Binance struct {
 	lock  sync.RWMutex
 	prs   pairs
 	store *postgres.Store
+	in    bool
 }
 
 func NewBinance(cfg *config.Config, s *postgres.Store, symbols map[string][]string) *Binance {
@@ -89,6 +90,7 @@ func NewBinance(cfg *config.Config, s *postgres.Store, symbols map[string][]stri
 		cfg:   cfg,
 		prs:   prs,
 		store: s,
+		in:    false,
 	}
 }
 
@@ -137,7 +139,10 @@ func (b *Binance) Subscribe() {
 
 				val := b.calcProfitability(&high, &low)
 				fmt.Println(high, low, val)
-				if val > b.cfg.Binance.MinProfit && b.cfg.App.UseDB > 0 {
+				if val > b.cfg.Binance.MinProfit && b.cfg.App.UseDB > 0 && !b.in {
+					b.lock.Lock()
+					b.in = true
+
 					rec := postgres.Record{
 						Low: postgres.RecordPair{
 							Symbol: low.Crypto + low.Stable,
@@ -154,6 +159,9 @@ func (b *Binance) Subscribe() {
 						panic(err)
 					}
 					time.Sleep(time.Second * 5)
+
+					b.in = false
+					b.lock.Unlock()
 				}
 			}
 		}()
