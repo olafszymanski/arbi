@@ -7,6 +7,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/olafszymanski/arbi/app/config"
+	"github.com/rs/zerolog"
 )
 
 type RecordPair struct {
@@ -29,11 +30,11 @@ type Store struct {
 	Binance *BinanceStore
 }
 
-func NewStore(cfg *config.Config) *Store {
+func NewStore(l *zerolog.Logger, cfg *config.Config) *Store {
 	url := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable", cfg.Database.Host, cfg.Database.Username, cfg.Database.Password, cfg.Database.Name)
 	db, err := sqlx.Connect(cfg.Database.Driver, url)
 	if err != nil {
-		panic(err)
+		l.Panic().Msg(err.Error())
 	}
 	return &Store{
 		Binance: NewBinanceStore(db),

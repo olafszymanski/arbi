@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/olafszymanski/arbi/app/config"
 	"github.com/olafszymanski/arbi/app/internal/postgres"
+	"github.com/rs/zerolog"
 )
 
 type pair struct {
@@ -21,6 +21,11 @@ type pair struct {
 	Stable string
 	Price  float64
 }
+
+func (p *pair) String() string {
+	return fmt.Sprintf("[%s - %f]", p.Crypto+p.Stable, p.Price)
+}
+
 type pairs map[string]pair
 
 func (p pairs) HighestLowest(crypto string) (pair, pair) {
@@ -44,6 +49,7 @@ func (p pairs) HighestLowest(crypto string) (pair, pair) {
 }
 
 type Binance struct {
+	l     *zerolog.Logger
 	cfg   *config.Config
 	lock  sync.RWMutex
 	prs   pairs
@@ -51,16 +57,16 @@ type Binance struct {
 	in    bool
 }
 
-func NewBinance(cfg *config.Config, s *postgres.Store, symbols map[string][]string) *Binance {
+func NewBinance(l *zerolog.Logger, cfg *config.Config, s *postgres.Store, symbols map[string][]string) *Binance {
 	res, err := http.Get(makeApiUrl(cfg, symbols))
 	if err != nil {
-		panic(err)
+		l.Panic().Msg(err.Error())
 	}
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		panic(err)
+		l.Panic().Msg(err.Error())
 	}
 
 	type Result struct {
@@ -78,7 +84,7 @@ func NewBinance(cfg *config.Config, s *postgres.Store, symbols map[string][]stri
 				if pr.Symbol == s {
 					prc, err := strconv.ParseFloat(pr.Price, 64)
 					if err != nil {
-						panic(err)
+						l.Panic().Msg(err.Error())
 					}
 					prs[s] = pair{key, sym, prc}
 				}
@@ -87,6 +93,7 @@ func NewBinance(cfg *config.Config, s *postgres.Store, symbols map[string][]stri
 	}
 
 	return &Binance{
+		l:     l,
 		cfg:   cfg,
 		prs:   prs,
 		store: s,
@@ -106,31 +113,31 @@ func (b *Binance) Subscribe() {
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
-					log.Printf("Goroutine: %s panicked, error: %v", sym, r)
+					b.l.Error().Msg(fmt.Sprintf("Goroutine: %s panicked, error: %v", sym, r))
 				}
 			}()
 
 			conn, _, err := websocket.DefaultDialer.Dial(makeWebsocketUrl(b.cfg, sym), nil)
-			log.Printf("Connecting to %s websocket...", sym)
+			b.l.Info().Msg(fmt.Sprintf("Connecting to %s websocket...", sym))
 			if err != nil {
-				panic(err)
+				b.l.Panic().Msg(err.Error())
 			}
 			defer conn.Close()
 
 			for {
 				_, data, err := conn.ReadMessage()
 				if err != nil {
-					panic(err)
+					b.l.Panic().Msg(err.Error())
 				}
 
 				var res Result
 				if err := json.Unmarshal(data, &res); err != nil {
-					panic(err)
+					b.l.Panic().Msg(err.Error())
 				}
 
 				prc, err := strconv.ParseFloat(res.Price, 64)
 				if err != nil {
-					panic(err)
+					b.l.Panic().Msg(err.Error())
 				}
 				b.lock.Lock()
 				b.prs[sym] = pair{pr.Crypto, pr.Stable, prc}
@@ -138,7 +145,7 @@ func (b *Binance) Subscribe() {
 				b.lock.Unlock()
 
 				val := b.calcProfitability(&high, &low)
-				fmt.Println(high, low, val)
+				b.l.Info().Str("High", high.String()).Str("Low", low.String()).Str("Val", fmt.Sprintf("%f", val)).Msg("Websocket received")
 				if val > b.cfg.Binance.MinProfit && b.cfg.App.UseDB > 0 && !b.in {
 					b.lock.Lock()
 					b.in = true
@@ -156,7 +163,7 @@ func (b *Binance) Subscribe() {
 						Timestamp: time.Now(),
 					}
 					if err := b.store.Binance.CreateRecord(rec); err != nil {
-						panic(err)
+						b.l.Panic().Msg(err.Error())
 					}
 					time.Sleep(time.Second * 5)
 
