@@ -70,7 +70,7 @@ func NewBinance(l *zerolog.Logger, cfg *config.Config, s *postgres.Store, symbol
 }
 
 func (b *Binance) Subscribe() {
-	type Result struct {
+	type result struct {
 		Symbol string `json:"s"`
 		Price  string `json:"c"`
 	}
@@ -98,7 +98,7 @@ func (b *Binance) Subscribe() {
 					b.l.Panic().Msg(err.Error())
 				}
 
-				var res Result
+				var res result
 				if err := json.Unmarshal(data, &res); err != nil {
 					b.l.Panic().Msg(err.Error())
 				}
@@ -113,7 +113,7 @@ func (b *Binance) Subscribe() {
 				b.lock.Unlock()
 
 				val := Profitability(&high, &low, b.cfg.Binance.Fee, b.cfg.Binance.Conversion)
-				b.l.Info().Str("High", high.String()).Str("Low", low.String()).Str("Val", fmt.Sprintf("%f", val)).Msg("Websocket received")
+				b.l.Info().Str("Pair: ", fmt.Sprintf("%s - %s", high.Crypto+high.Stable, low.Crypto+low.Stable)).Str("=", fmt.Sprintf("%f", val)).Msg("Websocket received")
 				if val > b.cfg.Binance.MinProfit && b.cfg.App.UseDB > 0 && !b.in {
 					b.lock.Lock()
 					b.in = true
