@@ -4,12 +4,14 @@ import (
 	"github.com/olafszymanski/arbi/app/config"
 	"github.com/olafszymanski/arbi/app/internal/exchange"
 	"github.com/olafszymanski/arbi/app/internal/postgres"
+	"github.com/olafszymanski/arbi/app/pkg/logger"
 )
 
 func main() {
-	cfg := config.NewConfig()
-	s := postgres.NewStore(cfg)
-	binance := exchange.NewBinance(cfg, s, map[string][]string{
+	l := logger.NewLogger()
+	cfg := config.NewConfig(&l)
+	s := postgres.NewStore(&l, cfg)
+	binance := exchange.NewBinance(&l, cfg, s, map[string][]string{
 		"BTC": {
 			"USDT",
 			"USDC",
