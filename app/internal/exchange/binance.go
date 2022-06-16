@@ -16,43 +16,11 @@ import (
 	"github.com/rs/zerolog"
 )
 
-type pair struct {
-	Crypto string
-	Stable string
-	Price  float64
-}
-
-func (p *pair) String() string {
-	return fmt.Sprintf("[%s - %f]", p.Crypto+p.Stable, p.Price)
-}
-
-type pairs map[string]pair
-
-func (p pairs) HighestLowest(crypto string) (pair, pair) {
-	hCrp, hStb, lCrp, lStb := "", "", "", ""
-	var hPrc, lPrc float64
-	for _, pr := range p {
-		if crypto == pr.Crypto {
-			if hPrc < pr.Price && strings.ToLower(pr.Stable) == "usdt" {
-				hCrp = pr.Crypto
-				hStb = pr.Stable
-				hPrc = pr.Price
-			}
-			if lPrc == 0 || lPrc > pr.Price {
-				lCrp = pr.Crypto
-				lStb = pr.Stable
-				lPrc = pr.Price
-			}
-		}
-	}
-	return pair{hCrp, hStb, hPrc}, pair{lCrp, lStb, lPrc}
-}
-
 type Binance struct {
 	l     *zerolog.Logger
 	cfg   *config.Config
 	lock  sync.RWMutex
-	prs   pairs
+	prs   Pairs
 	store *postgres.Store
 	in    bool
 }
@@ -76,7 +44,7 @@ func NewBinance(l *zerolog.Logger, cfg *config.Config, s *postgres.Store, symbol
 	var prcs []Result
 	json.Unmarshal(body, &prcs)
 
-	prs := make(pairs)
+	prs := make(Pairs)
 	for key, syms := range symbols {
 		for _, sym := range syms {
 			s := key + sym
@@ -86,7 +54,7 @@ func NewBinance(l *zerolog.Logger, cfg *config.Config, s *postgres.Store, symbol
 					if err != nil {
 						l.Panic().Msg(err.Error())
 					}
-					prs[s] = pair{key, sym, prc}
+					prs[s] = Pair{key, sym, prc}
 				}
 			}
 		}
@@ -140,11 +108,11 @@ func (b *Binance) Subscribe() {
 					b.l.Panic().Msg(err.Error())
 				}
 				b.lock.Lock()
-				b.prs[sym] = pair{pr.Crypto, pr.Stable, prc}
+				b.prs[sym] = Pair{pr.Crypto, pr.Stable, prc}
 				high, low := b.prs.HighestLowest(pr.Crypto)
 				b.lock.Unlock()
 
-				val := b.calcProfitability(&high, &low)
+				val := Profitability(&high, &low, b.cfg.Binance.Fee, b.cfg.Binance.Conversion)
 				b.l.Info().Str("High", high.String()).Str("Low", low.String()).Str("Val", fmt.Sprintf("%f", val)).Msg("Websocket received")
 				if val > b.cfg.Binance.MinProfit && b.cfg.App.UseDB > 0 && !b.in {
 					b.lock.Lock()
@@ -173,13 +141,6 @@ func (b *Binance) Subscribe() {
 			}
 		}()
 	}
-}
-
-func (b *Binance) calcProfitability(high, low *pair) float64 {
-	toStb := high.Price - high.Price*b.cfg.Binance.Fee
-	stbToStb := (toStb - toStb*b.cfg.Binance.Fee) * b.cfg.Binance.Conversion
-	stbToC := stbToStb - stbToStb*b.cfg.Binance.Fee
-	return stbToC / low.Price
 }
 
 func makeWebsocketUrl(cfg *config.Config, pair string) string {
