@@ -1,3 +1,3 @@
 run_dev:
-	docker build Dockerfile.dev -t arbi
+	docker build . -t arbi
 	docker run arbi

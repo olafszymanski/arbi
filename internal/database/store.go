@@ -8,17 +8,16 @@ import (
 	firebase "firebase.google.com/go"
 	"github.com/olafszymanski/arbi/config"
 	"github.com/olafszymanski/arbi/internal/exchange"
-	"github.com/rs/zerolog"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/option"
 )
 
 type Store struct {
 	*firestore.Client
-	l          *zerolog.Logger
 	collection string
 }
 
-func NewStore(ctx context.Context, l *zerolog.Logger, cfg *config.Config) *Store {
+func NewStore(ctx context.Context, cfg *config.Config) *Store {
 	var (
 		col string
 		app *firebase.App
@@ -34,19 +33,19 @@ func NewStore(ctx context.Context, l *zerolog.Logger, cfg *config.Config) *Store
 		app, err = firebase.NewApp(ctx, fbCfg)
 	}
 	if err != nil {
-		l.Panic().Msg(err.Error())
+		log.WithError(err).Panic()
 	}
 
 	client, err := app.Firestore(ctx)
 	if err != nil {
-		l.Panic().Msg(err.Error())
+		log.WithError(err).Panic()
 	}
-	return &Store{client, l, col}
+	return &Store{client, col}
 }
 
 func (s *Store) Disconnect() {
 	if err := s.Close(); err != nil {
-		s.l.Panic().Msg(err.Error())
+		log.WithError(err).Panic()
 	}
 }
 

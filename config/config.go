@@ -3,7 +3,7 @@ package config
 import (
 	"io/ioutil"
 
-	"github.com/rs/zerolog"
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
 
@@ -33,14 +33,14 @@ type Config struct {
 	} `yaml:"binance"`
 }
 
-func NewConfig(l *zerolog.Logger) *Config {
+func NewConfig() *Config {
 	var cfg *Config
 	f, err := ioutil.ReadFile("config/config.yml")
 	if err != nil {
-		l.Panic().Msg(err.Error())
+		log.WithError(err).Panic()
 	}
 	if err := yaml.Unmarshal(f, &cfg); err != nil {
-		l.Panic().Msg(err.Error())
+		log.WithError(err).Panic()
 	}
 	return cfg
 }

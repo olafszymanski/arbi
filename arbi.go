@@ -6,16 +6,14 @@ import (
 	"github.com/olafszymanski/arbi/config"
 	"github.com/olafszymanski/arbi/internal/broker"
 	"github.com/olafszymanski/arbi/internal/database"
-	"github.com/olafszymanski/arbi/pkg/logger"
 )
 
 func main() {
-	l := logger.NewLogger()
-	cfg := config.NewConfig(&l)
-	s := database.NewStore(context.Background(), &l, cfg)
+	cfg := config.NewConfig()
+	s := database.NewStore(context.Background(), cfg)
 	defer s.Disconnect()
 
-	binance := broker.NewBinance(&l, cfg, s, map[string][]string{
+	binance := broker.NewBinance(cfg, s, map[string][]string{
 		"BTC": {
 			"USDT",
 			"USDC",
