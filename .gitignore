@@ -1,3 +1,4 @@
 config.yml
 .env
 .vscode
+credentials.json

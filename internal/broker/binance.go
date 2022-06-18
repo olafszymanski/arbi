@@ -1,4 +1,4 @@
-package exchange
+package broker
 
 import (
 	"encoding/json"
@@ -11,8 +11,9 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/olafszymanski/arbi/app/config"
-	"github.com/olafszymanski/arbi/app/internal/postgres"
+	"github.com/olafszymanski/arbi/config"
+	"github.com/olafszymanski/arbi/internal/database"
+	"github.com/olafszymanski/arbi/internal/exchange"
 	"github.com/rs/zerolog"
 )
 
@@ -20,12 +21,12 @@ type Binance struct {
 	l     *zerolog.Logger
 	cfg   *config.Config
 	lock  sync.RWMutex
-	prs   Pairs
-	store *postgres.Store
+	prs   exchange.Pairs
+	store *database.Store
 	in    bool
 }
 
-func NewBinance(l *zerolog.Logger, cfg *config.Config, s *postgres.Store, symbols map[string][]string) *Binance {
+func NewBinance(l *zerolog.Logger, cfg *config.Config, s *database.Store, symbols map[string][]string) *Binance {
 	res, err := http.Get(makeApiUrl(cfg, symbols))
 	if err != nil {
 		l.Panic().Msg(err.Error())
@@ -44,7 +45,7 @@ func NewBinance(l *zerolog.Logger, cfg *config.Config, s *postgres.Store, symbol
 	var prcs []Result
 	json.Unmarshal(body, &prcs)
 
-	prs := make(Pairs)
+	prs := make(exchange.Pairs)
 	for key, syms := range symbols {
 		for _, sym := range syms {
 			s := key + sym
@@ -54,7 +55,7 @@ func NewBinance(l *zerolog.Logger, cfg *config.Config, s *postgres.Store, symbol
 					if err != nil {
 						l.Panic().Msg(err.Error())
 					}
-					prs[s] = Pair{key, sym, prc}
+					prs[s] = exchange.Pair{key, sym, prc}
 				}
 			}
 		}
@@ -108,29 +109,17 @@ func (b *Binance) Subscribe() {
 					b.l.Panic().Msg(err.Error())
 				}
 				b.lock.Lock()
-				b.prs[sym] = Pair{pr.Crypto, pr.Stable, prc}
+				b.prs[sym] = exchange.Pair{pr.Crypto, pr.Stable, prc}
 				high, low := b.prs.HighestLowest(pr.Crypto)
 				b.lock.Unlock()
 
-				val := Profitability(&high, &low, b.cfg.Binance.Fee, b.cfg.Binance.Conversion)
+				val := exchange.Profitability(&high, &low, b.cfg.Binance.Fee, b.cfg.Binance.Conversion)
 				b.l.Info().Str("Pair: ", fmt.Sprintf("%s - %s", high.Crypto+high.Stable, low.Crypto+low.Stable)).Str("=", fmt.Sprintf("%f", val)).Msg("Websocket received")
 				if val > b.cfg.Binance.MinProfit && b.cfg.App.UseDB > 0 && !b.in {
 					b.lock.Lock()
 					b.in = true
 
-					rec := postgres.Record{
-						Low: postgres.RecordPair{
-							Symbol: low.Crypto + low.Stable,
-							Price:  low.Price,
-						},
-						High: postgres.RecordPair{
-							Symbol: high.Crypto + high.Stable,
-							Price:  high.Price,
-						},
-						Value:     val,
-						Timestamp: time.Now(),
-					}
-					if err := b.store.Binance.CreateRecord(rec); err != nil {
+					if err := b.store.AddRecord(&high, &low, val); err != nil {
 						b.l.Panic().Msg(err.Error())
 					}
 					time.Sleep(time.Second * 5)

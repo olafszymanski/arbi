@@ -21,4 +21,3 @@ COPY --from=build /src/arbi .
 COPY --from=build /src/config/config.yml ./config
 
 CMD ./arbi
-

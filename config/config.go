@@ -9,7 +9,9 @@ import (
 
 type Config struct {
 	App struct {
-		UseDB int8 `yaml:"use_db"`
+		Development uint8  `yaml:"development"`
+		UseDB       uint8  `yaml:"use_db"`
+		GcpID       string `yaml:"gcp_id"`
 	} `yaml:"app"`
 	Database struct {
 		Host     string `yaml:"host"`
