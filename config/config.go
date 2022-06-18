@@ -13,13 +13,6 @@ type Config struct {
 		UseDB       uint8  `yaml:"use_db"`
 		GcpID       string `yaml:"gcp_id"`
 	} `yaml:"app"`
-	Database struct {
-		Host     string `yaml:"host"`
-		Username string `yaml:"username"`
-		Password string `yaml:"password"`
-		Name     string `yaml:"name"`
-		Driver   string `yaml:"driver"`
-	} `yaml:"database"`
 	Binance struct {
 		WebsocketScheme string  `yaml:"websocket_scheme"`
 		WebsocketHost   string  `yaml:"websocket_host"`
@@ -33,9 +26,9 @@ type Config struct {
 	} `yaml:"binance"`
 }
 
-func NewConfig() *Config {
+func NewConfig(path string) *Config {
 	var cfg *Config
-	f, err := ioutil.ReadFile("config/config.yml")
+	f, err := ioutil.ReadFile(path)
 	if err != nil {
 		log.WithError(err).Panic()
 	}

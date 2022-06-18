@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	cfg := config.NewConfig()
+	cfg := config.NewConfig("config/config.yml")
 	s := database.NewStore(context.Background(), cfg)
 	defer s.Disconnect()
 
