@@ -12,7 +12,7 @@ import (
 func main() {
 	l := logger.NewLogger()
 	cfg := config.NewConfig(&l)
-	s := database.NewStore(&l, cfg, context.Background())
+	s := database.NewStore(context.Background(), &l, cfg)
 	defer s.Disconnect()
 
 	binance := broker.NewBinance(&l, cfg, s, map[string][]string{

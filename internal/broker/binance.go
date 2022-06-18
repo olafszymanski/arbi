@@ -1,6 +1,7 @@
 package broker
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -119,7 +120,7 @@ func (b *Binance) Subscribe() {
 					b.lock.Lock()
 					b.in = true
 
-					if err := b.store.AddRecord(&high, &low, val); err != nil {
+					if err := b.store.AddRecord(context.Background(), &high, &low, val); err != nil {
 						b.l.Panic().Msg(err.Error())
 					}
 					time.Sleep(time.Second * 5)

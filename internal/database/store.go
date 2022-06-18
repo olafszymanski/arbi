@@ -15,11 +15,10 @@ import (
 type Store struct {
 	*firestore.Client
 	l          *zerolog.Logger
-	ctx        context.Context
 	collection string
 }
 
-func NewStore(l *zerolog.Logger, cfg *config.Config, ctx context.Context) *Store {
+func NewStore(ctx context.Context, l *zerolog.Logger, cfg *config.Config) *Store {
 	var (
 		col string
 		app *firebase.App
@@ -42,7 +41,7 @@ func NewStore(l *zerolog.Logger, cfg *config.Config, ctx context.Context) *Store
 	if err != nil {
 		l.Panic().Msg(err.Error())
 	}
-	return &Store{client, l, ctx, col}
+	return &Store{client, l, col}
 }
 
 func (s *Store) Disconnect() {
@@ -51,8 +50,8 @@ func (s *Store) Disconnect() {
 	}
 }
 
-func (s *Store) AddRecord(high, low *exchange.Pair, value float64) error {
-	_, _, err := s.Collection(s.collection).Add(s.ctx, map[string]interface{}{
+func (s *Store) AddRecord(ctx context.Context, high, low *exchange.Pair, value float64) error {
+	_, _, err := s.Collection(s.collection).Add(ctx, map[string]interface{}{
 		"high":      *high,
 		"low":       *low,
 		"value":     value,
