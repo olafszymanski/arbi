@@ -38,11 +38,11 @@ func NewBinance(cfg *config.Config, s *database.Store, symbols map[string][]stri
 		log.WithError(err).Panic()
 	}
 
-	type Result struct {
+	type result struct {
 		Symbol string `json:"symbol"`
 		Price  string `json:"price"`
 	}
-	var prcs []Result
+	var prcs []result
 	json.Unmarshal(body, &prcs)
 
 	prs := make(exchange.Pairs)
@@ -55,7 +55,11 @@ func NewBinance(cfg *config.Config, s *database.Store, symbols map[string][]stri
 					if err != nil {
 						log.WithError(err).Panic()
 					}
-					prs[s] = exchange.Pair{key, sym, prc}
+					prs[s] = exchange.Pair{
+						Crypto: key,
+						Stable: sym,
+						Price:  prc,
+					}
 				}
 			}
 		}
@@ -108,7 +112,11 @@ func (b *Binance) Subscribe() {
 					log.WithError(err).Panic()
 				}
 				b.lock.Lock()
-				b.prs[sym] = exchange.Pair{pr.Crypto, pr.Stable, prc}
+				b.prs[sym] = exchange.Pair{
+					Crypto: pr.Crypto,
+					Stable: pr.Stable,
+					Price:  prc,
+				}
 				high, low := b.prs.HighestLowest(pr.Crypto)
 				b.lock.Unlock()
 
