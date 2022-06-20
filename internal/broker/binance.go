@@ -18,6 +18,39 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type BinanceWebsocketResult struct {
+	Symbol string `json:"s"`
+	Price  string `json:"c"`
+}
+
+type BinanceWebsocket struct {
+	conn *websocket.Conn
+}
+
+func NewBinanceWebsocket(cfg *config.Config, symbol string) *BinanceWebsocket {
+	conn, _, err := websocket.DefaultDialer.Dial(makeWebsocketUrl(cfg, symbol), nil)
+	if err != nil {
+		log.WithError(err).Panic()
+	}
+	return &BinanceWebsocket{conn}
+}
+
+func (b *BinanceWebsocket) Read() *BinanceWebsocketResult {
+	_, data, err := b.conn.ReadMessage()
+	if err != nil {
+		log.WithError(err).Panic()
+	}
+	var res BinanceWebsocketResult
+	if err := json.Unmarshal(data, &res); err != nil {
+		log.WithError(err).Panic()
+	}
+	return &res
+}
+
+func (b *BinanceWebsocket) Close() {
+	b.conn.Close()
+}
+
 type Binance struct {
 	cfg   *config.Config
 	lock  sync.RWMutex
@@ -74,11 +107,6 @@ func NewBinance(cfg *config.Config, s *database.Store, symbols map[string][]stri
 }
 
 func (b *Binance) Subscribe() {
-	type result struct {
-		Symbol string `json:"s"`
-		Price  string `json:"c"`
-	}
-
 	for sym, pr := range b.prs {
 		sym := sym
 		pr := pr
@@ -89,23 +117,12 @@ func (b *Binance) Subscribe() {
 				}
 			}()
 
-			conn, _, err := websocket.DefaultDialer.Dial(makeWebsocketUrl(b.cfg, sym), nil)
-			log.Info("Connecting to '", sym, "' websocket...")
-			if err != nil {
-				log.WithError(err).Panic()
-			}
-			defer conn.Close()
+			ws := NewBinanceWebsocket(b.cfg, sym)
+			defer ws.Close()
+			log.Info("Connected to '", sym, "' websocket")
 
 			for {
-				_, data, err := conn.ReadMessage()
-				if err != nil {
-					log.WithError(err).Panic()
-				}
-
-				var res result
-				if err := json.Unmarshal(data, &res); err != nil {
-					log.WithError(err).Panic()
-				}
+				res := ws.Read()
 
 				prc, err := strconv.ParseFloat(res.Price, 64)
 				if err != nil {
