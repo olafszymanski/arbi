@@ -3,10 +3,6 @@ app:
   use_db: 0
 
 binance:
-  websocket_scheme: wss
-  websocket_host: stream.binance.com
-  api_scheme: https
-  api_host: api.binance.com
   fee: 0.001
   min_profit: 1.0015
   conversion: 0.999

@@ -15,15 +15,11 @@ type Config struct {
 		GcpID       string `yaml:"-"`
 	} `yaml:"app"`
 	Binance struct {
-		WebsocketScheme string  `yaml:"websocket_scheme"`
-		WebsocketHost   string  `yaml:"websocket_host"`
-		ApiScheme       string  `yaml:"api_scheme"`
-		ApiHost         string  `yaml:"api_host"`
-		ApiKey          string  `yaml:"-"`
-		SecretKey       string  `yaml:"-"`
-		Fee             float64 `yaml:"fee"`
-		MinProfit       float64 `yaml:"min_profit"`
-		Conversion      float64 `yaml:"conversion"`
+		ApiKey     string  `yaml:"-"`
+		SecretKey  string  `yaml:"-"`
+		Fee        float64 `yaml:"fee"`
+		MinProfit  float64 `yaml:"min_profit"`
+		Conversion float64 `yaml:"conversion"`
 	} `yaml:"binance"`
 }
 
