@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/olafszymanski/arbi/config"
-	"github.com/olafszymanski/arbi/internal/broker"
+	broker "github.com/olafszymanski/arbi/internal/broker/binance"
 	"github.com/olafszymanski/arbi/internal/database"
 )
 
