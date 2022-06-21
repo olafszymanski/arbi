@@ -32,6 +32,11 @@ jobs:
         uses: docker/build-push-action@e551b19e49efd4e98792db7592c17c09b89db8d8
         with:
           context: .
+          file: Dockerfile.prod
           push: true
+          build-args: |
+            GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
+            BINANCE_API_KEY=${{ secrets.BINANCE_API_KEY }}
+            BINANCE_SECRET_KEY=${{ secrets.BINANCE_SECRET_KEY }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
