@@ -9,7 +9,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      GAR_REPOSITORY_LOCATION: eu-central2
+      GAR_REPOSITORY_LOCATION: europe-central2
     steps:
       - name: Checkout
         uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
