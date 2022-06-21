@@ -7,7 +7,7 @@ import (
 	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go"
 	"github.com/olafszymanski/arbi/config"
-	"github.com/olafszymanski/arbi/internal/exchange"
+	"github.com/olafszymanski/arbi/internal/broker"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/option"
 )
@@ -49,7 +49,7 @@ func (s *Store) Disconnect() {
 	}
 }
 
-func (s *Store) AddRecord(ctx context.Context, high, low *exchange.Pair, value float64) error {
+func (s *Store) AddRecord(ctx context.Context, high, low *broker.Pair, value float64) error {
 	_, _, err := s.Collection(s.collection).Add(ctx, map[string]interface{}{
 		"high":      *high,
 		"low":       *low,

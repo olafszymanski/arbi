@@ -1,4 +1,4 @@
-package broker
+package binance
 
 import (
 	"context"
@@ -13,8 +13,8 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/olafszymanski/arbi/config"
+	"github.com/olafszymanski/arbi/internal/broker"
 	"github.com/olafszymanski/arbi/internal/database"
-	"github.com/olafszymanski/arbi/internal/exchange"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -89,7 +89,7 @@ func (b *BinancePricesAPI) Read(cfg *config.Config, symbols map[string][]string)
 type Binance struct {
 	cfg   *config.Config
 	lock  sync.RWMutex
-	prs   exchange.Pairs
+	prs   broker.Pairs
 	store *database.Store
 	in    bool
 }
@@ -97,7 +97,7 @@ type Binance struct {
 func NewBinance(cfg *config.Config, s *database.Store, symbols map[string][]string) *Binance {
 	api := NewBinancePricesAPI()
 	res := api.Read(cfg, symbols)
-	prs := make(exchange.Pairs)
+	prs := make(broker.Pairs)
 	for key, syms := range symbols {
 		for _, sym := range syms {
 			s := key + sym
@@ -107,7 +107,7 @@ func NewBinance(cfg *config.Config, s *database.Store, symbols map[string][]stri
 					if err != nil {
 						log.WithError(err).Panic()
 					}
-					prs[s] = exchange.Pair{
+					prs[s] = broker.Pair{
 						Crypto: key,
 						Stable: sym,
 						Price:  prc,
@@ -146,7 +146,7 @@ func (b *Binance) Subscribe() {
 					log.WithError(err).Panic()
 				}
 				b.lock.Lock()
-				b.prs[sym] = exchange.Pair{
+				b.prs[sym] = broker.Pair{
 					Crypto: pr.Crypto,
 					Stable: pr.Stable,
 					Price:  prc,
@@ -154,7 +154,7 @@ func (b *Binance) Subscribe() {
 				high, low := b.prs.HighestLowest(pr.Crypto)
 				b.lock.Unlock()
 
-				val := exchange.Profitability(&high, &low, b.cfg.Binance.Fee, b.cfg.Binance.Conversion)
+				val := broker.Profitability(&high, &low, b.cfg.Binance.Fee, b.cfg.Binance.Conversion)
 				log.WithFields(log.Fields{
 					"high": high,
 					"low":  low,

@@ -1,4 +1,4 @@
-package exchange
+package broker
 
 import (
 	"fmt"
@@ -37,7 +37,7 @@ func (p Pairs) HighestLowest(crypto string) (Pair, Pair) {
 	return Pair{hCrp, hStb, hPrc}, Pair{lCrp, lStb, lPrc}
 }
 
-type IExchange interface {
+type IBroker interface {
 	Subscribe()
 }
 
