@@ -89,12 +89,12 @@ func (b *BinancePricesAPI) Read(cfg *config.Config, symbols map[string][]string)
 type Binance struct {
 	cfg   *config.Config
 	lock  sync.RWMutex
-	prs   broker.Pairs
+	pairs broker.Pairs
 	store *database.Store
 	in    bool
 }
 
-func NewBinance(cfg *config.Config, s *database.Store, symbols map[string][]string) *Binance {
+func NewBinance(cfg *config.Config, store *database.Store, symbols map[string][]string) *Binance {
 	api := NewBinancePricesAPI()
 	res := api.Read(cfg, symbols)
 	prs := make(broker.Pairs)
@@ -118,14 +118,14 @@ func NewBinance(cfg *config.Config, s *database.Store, symbols map[string][]stri
 	}
 	return &Binance{
 		cfg:   cfg,
-		prs:   prs,
-		store: s,
+		pairs: prs,
+		store: store,
 		in:    false,
 	}
 }
 
 func (b *Binance) Subscribe() {
-	for sym, pr := range b.prs {
+	for sym, pr := range b.pairs {
 		sym := sym
 		pr := pr
 		go func() {
@@ -146,12 +146,12 @@ func (b *Binance) Subscribe() {
 					log.WithError(err).Panic()
 				}
 				b.lock.Lock()
-				b.prs[sym] = broker.Pair{
+				b.pairs[sym] = broker.Pair{
 					Crypto: pr.Crypto,
 					Stable: pr.Stable,
 					Price:  prc,
 				}
-				high, low := b.prs.HighestLowest(pr.Crypto)
+				high, low := b.pairs.HighestLowest(pr.Crypto)
 				b.lock.Unlock()
 
 				val := broker.Profitability(&high, &low, b.cfg.Binance.Fee, b.cfg.Binance.Conversion)

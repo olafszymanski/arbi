@@ -13,7 +13,7 @@ import (
 )
 
 type Store struct {
-	*firestore.Client
+	client     *firestore.Client
 	collection string
 }
 
@@ -44,13 +44,13 @@ func NewStore(ctx context.Context, cfg *config.Config) *Store {
 }
 
 func (s *Store) Disconnect() {
-	if err := s.Close(); err != nil {
+	if err := s.client.Close(); err != nil {
 		log.WithError(err).Panic()
 	}
 }
 
 func (s *Store) AddRecord(ctx context.Context, high, low *broker.Pair, value float64) error {
-	_, _, err := s.Collection(s.collection).Add(ctx, map[string]interface{}{
+	_, _, err := s.client.Collection(s.collection).Add(ctx, map[string]interface{}{
 		"high":      *high,
 		"low":       *low,
 		"value":     value,
