@@ -3,25 +3,22 @@ package binance
 import (
 	"fmt"
 	"testing"
-
-	"github.com/olafszymanski/arbi/config"
 )
 
 func Test_makeWebsocketUrl(t *testing.T) {
-	cfg := config.NewConfig("../../../config/config.yml")
 	tests := []struct {
 		pair string
 		want string
 	}{
-		{"BTCUSDT", fmt.Sprintf("%s://%s/ws/btcusdt@miniTicker", cfg.Binance.WebsocketScheme, cfg.Binance.WebsocketHost)},
-		{"btcusdt", fmt.Sprintf("%s://%s/ws/btcusdt@miniTicker", cfg.Binance.WebsocketScheme, cfg.Binance.WebsocketHost)},
-		{"btcUSDT", fmt.Sprintf("%s://%s/ws/btcusdt@miniTicker", cfg.Binance.WebsocketScheme, cfg.Binance.WebsocketHost)},
+		{"BTCUSDT", "wss://stream.binance.com/ws/btcusdt@miniTicker"},
+		{"btcusdt", "wss://stream.binance.com/ws/btcusdt@miniTicker"},
+		{"btcUSDT", "wss://stream.binance.com/ws/ws/btcusdt@miniTicker"},
 	}
 
 	for _, tt := range tests {
 		name := fmt.Sprintf("%s, %s", tt.pair, tt.want)
 		t.Run(name, func(t *testing.T) {
-			url := makeWebsocketUrl(cfg, tt.pair)
+			url := makeWebsocketUrl(tt.pair)
 			if url != tt.want {
 				t.Errorf("got: %s, want %s", tt.pair, tt.want)
 			}
@@ -30,7 +27,6 @@ func Test_makeWebsocketUrl(t *testing.T) {
 }
 
 func Test_makeApiUrl(t *testing.T) {
-	cfg := config.NewConfig("../../../config/config.yml")
 	tests := []struct {
 		symbols map[string][]string
 		want    string
@@ -44,7 +40,7 @@ func Test_makeApiUrl(t *testing.T) {
 					"DAI",
 				},
 			},
-			fmt.Sprintf(`%s://%s/api/v3/ticker/price?symbols=["BTCUSDT","BTCUSDC","BTCTUSD","BTCDAI"]`, cfg.Binance.ApiScheme, cfg.Binance.ApiHost),
+			`https://api.binance.com/api/v3/ticker/price?symbols=["BTCUSDT","BTCUSDC","BTCTUSD","BTCDAI"]`,
 		},
 		{
 			map[string][]string{
@@ -55,7 +51,7 @@ func Test_makeApiUrl(t *testing.T) {
 					"dai",
 				},
 			},
-			fmt.Sprintf(`%s://%s/api/v3/ticker/price?symbols=["ethusdt","ethusdc","ethtusd","ethdai"]`, cfg.Binance.ApiScheme, cfg.Binance.ApiHost),
+			`https://api.binance.com/api/v3/ticker/price?symbols=["ethusdt","ethusdc","ethtusd","ethdai"]`,
 		},
 		{
 			map[string][]string{
@@ -66,14 +62,14 @@ func Test_makeApiUrl(t *testing.T) {
 					"DAI",
 				},
 			},
-			fmt.Sprintf(`%s://%s/api/v3/ticker/price?symbols=["BNBusdt","BNBUSDC","BNBtusd","BNBDAI"]`, cfg.Binance.ApiScheme, cfg.Binance.ApiHost),
+			`https://api.binance.com/api/v3/ticker/price?symbols=["BNBusdt","BNBUSDC","BNBtusd","BNBDAI"]`,
 		},
 	}
 
 	for _, tt := range tests {
 		name := fmt.Sprintf("%s, %s", tt.symbols, tt.want)
 		t.Run(name, func(t *testing.T) {
-			url := makeApiUrl(cfg, tt.symbols)
+			url := makeApiUrl(tt.symbols)
 			if url != tt.want {
 				t.Errorf("got %s, want %s", url, tt.want)
 			}

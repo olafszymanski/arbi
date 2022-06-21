@@ -28,7 +28,7 @@ type BinanceWebsocket struct {
 }
 
 func NewBinanceWebsocket(cfg *config.Config, symbol string) *BinanceWebsocket {
-	conn, _, err := websocket.DefaultDialer.Dial(makeWebsocketUrl(cfg, symbol), nil)
+	conn, _, err := websocket.DefaultDialer.Dial(makeWebsocketUrl(symbol), nil)
 	if err != nil {
 		log.WithError(err).Panic()
 	}
@@ -65,7 +65,7 @@ func (b *BinancePricesAPI) Read(cfg *config.Config, symbols map[string][]string)
 		Price  string `json:"price"`
 	}
 
-	data, err := http.Get(makeApiUrl(cfg, symbols))
+	data, err := http.Get(makeApiUrl(symbols))
 	if err != nil {
 		log.WithError(err).Panic()
 	}
@@ -177,13 +177,13 @@ func (b *Binance) Subscribe() {
 	}
 }
 
-func makeWebsocketUrl(cfg *config.Config, pair string) string {
-	return fmt.Sprintf("%s://%s/ws/%s@miniTicker", cfg.Binance.WebsocketScheme, cfg.Binance.WebsocketHost, strings.ToLower(pair))
+func makeWebsocketUrl(pair string) string {
+	return fmt.Sprintf("wss://stream.binance.com/ws/%s@miniTicker", strings.ToLower(pair))
 }
 
-func makeApiUrl(cfg *config.Config, symbols map[string][]string) string {
+func makeApiUrl(symbols map[string][]string) string {
 	var url strings.Builder
-	url.WriteString(cfg.Binance.ApiScheme + "://" + cfg.Binance.ApiHost + "/api/v3/ticker/price?symbols=[")
+	url.WriteString("https://api.binance.com/api/v3/ticker/price?symbols=[")
 	i := 0
 	for key, syms := range symbols {
 		for j, s := range syms {

@@ -2,6 +2,7 @@ package config
 
 import (
 	"io/ioutil"
+	"os"
 
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
@@ -11,18 +12,14 @@ type Config struct {
 	App struct {
 		Development uint8  `yaml:"development"`
 		UseDB       uint8  `yaml:"use_db"`
-		GcpID       string `yaml:"gcp_id"`
+		GcpID       string `yaml:"-"`
 	} `yaml:"app"`
 	Binance struct {
-		WebsocketScheme string  `yaml:"websocket_scheme"`
-		WebsocketHost   string  `yaml:"websocket_host"`
-		ApiScheme       string  `yaml:"api_scheme"`
-		ApiHost         string  `yaml:"api_host"`
-		ApiKey          string  `yaml:"api_key"`
-		SecretKey       string  `yaml:"secret_key"`
-		Fee             float64 `yaml:"fee"`
-		MinProfit       float64 `yaml:"min_profit"`
-		Conversion      float64 `yaml:"conversion"`
+		ApiKey     string  `yaml:"-"`
+		SecretKey  string  `yaml:"-"`
+		Fee        float64 `yaml:"fee"`
+		MinProfit  float64 `yaml:"min_profit"`
+		Conversion float64 `yaml:"conversion"`
 	} `yaml:"binance"`
 }
 
@@ -35,5 +32,8 @@ func NewConfig(path string) *Config {
 	if err := yaml.Unmarshal(f, &cfg); err != nil {
 		log.WithError(err).Panic()
 	}
+	cfg.App.GcpID = os.Getenv("GCP_PROJECT_ID")
+	cfg.Binance.ApiKey = os.Getenv("BINANCE_API_KEY")
+	cfg.Binance.SecretKey = os.Getenv("BINANCE_SECRET_KEY")
 	return cfg
 }
