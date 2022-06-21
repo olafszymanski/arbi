@@ -3,21 +3,16 @@ package config
 import (
 	"io/ioutil"
 
-	"github.com/rs/zerolog"
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
 
 type Config struct {
 	App struct {
-		UseDB int8 `yaml:"use_db"`
+		Development uint8  `yaml:"development"`
+		UseDB       uint8  `yaml:"use_db"`
+		GcpID       string `yaml:"gcp_id"`
 	} `yaml:"app"`
-	Database struct {
-		Host     string `yaml:"host"`
-		Username string `yaml:"username"`
-		Password string `yaml:"password"`
-		Name     string `yaml:"name"`
-		Driver   string `yaml:"driver"`
-	} `yaml:"database"`
 	Binance struct {
 		WebsocketScheme string  `yaml:"websocket_scheme"`
 		WebsocketHost   string  `yaml:"websocket_host"`
@@ -31,14 +26,14 @@ type Config struct {
 	} `yaml:"binance"`
 }
 
-func NewConfig(l *zerolog.Logger) *Config {
+func NewConfig(path string) *Config {
 	var cfg *Config
-	f, err := ioutil.ReadFile("config/config.yml")
+	f, err := ioutil.ReadFile(path)
 	if err != nil {
-		l.Panic().Msg(err.Error())
+		log.WithError(err).Panic()
 	}
 	if err := yaml.Unmarshal(f, &cfg); err != nil {
-		l.Panic().Msg(err.Error())
+		log.WithError(err).Panic()
 	}
 	return cfg
 }
