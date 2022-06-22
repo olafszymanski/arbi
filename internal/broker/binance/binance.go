@@ -75,12 +75,12 @@ func (b *BinancePricesAPI) Read(cfg *config.Config, symbols map[string][]string)
 		log.WithError(err).Panic()
 	}
 
-	var tempRes []result
-	if err := json.Unmarshal(body, &tempRes); err != nil {
+	var tmpRes []result
+	if err := json.Unmarshal(body, &tmpRes); err != nil {
 		log.WithError(err).Panic()
 	}
 	var res []BinanceResult
-	for _, r := range tempRes {
+	for _, r := range tmpRes {
 		res = append(res, BinanceResult(r))
 	}
 	return res
@@ -182,22 +182,14 @@ func makeWebsocketUrl(pair string) string {
 }
 
 func makeApiUrl(symbols map[string][]string) string {
-	var url strings.Builder
-	url.WriteString("https://api.binance.com/api/v3/ticker/price?symbols=[")
-	i := 0
-	for key, syms := range symbols {
-		for j, s := range syms {
-			if j == len(syms)-1 {
-				url.WriteString(`"` + key + s + `"`)
-			} else {
-				url.WriteString(`"` + key + s + `",`)
-			}
+	url := "https://api.binance.com/api/v3/ticker/price?symbols=["
+	tmpSyms := make([]string, 0, len(symbols))
+	for crypto, stables := range symbols {
+		for _, stable := range stables {
+			tmpSyms = append(tmpSyms, fmt.Sprintf(`"%s"`, crypto+stable))
 		}
-		if i != len(symbols)-1 {
-			url.WriteString(",")
-		}
-		i++
 	}
-	url.WriteString("]")
-	return url.String()
+	syms := strings.Join(tmpSyms, ",")
+	url += syms + "]"
+	return url
 }

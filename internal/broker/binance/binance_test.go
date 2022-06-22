@@ -12,7 +12,7 @@ func Test_makeWebsocketUrl(t *testing.T) {
 	}{
 		{"BTCUSDT", "wss://stream.binance.com/ws/btcusdt@miniTicker"},
 		{"btcusdt", "wss://stream.binance.com/ws/btcusdt@miniTicker"},
-		{"btcUSDT", "wss://stream.binance.com/ws/ws/btcusdt@miniTicker"},
+		{"btcUSDT", "wss://stream.binance.com/ws/btcusdt@miniTicker"},
 	}
 
 	for _, tt := range tests {
