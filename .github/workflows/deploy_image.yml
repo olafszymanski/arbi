@@ -34,11 +34,8 @@ jobs:
           token_format: access_token
 
       - name: Login to Google Cloud Platform
-        uses: docker/login-action@49ed152c8eca782a232dede0303416e8f356c37b
-        with:
-          registry: ${{ env.GAR_REPOSITORY_LOCATION }}-docker.pkg.dev
-          username: oauth2accesstoken
-          password: ${{ steps.auth.output.access_token }}
+        run: |-
+          echo '${{ steps.auth.outputs.access_token }}' | docker login -u oauth2accesstoken --password-stdin https://${{ env.GAR_REPOSITORY_LOCATION }}-docker.pkg.dev
 
       - name: Build the Docker image and push it to the Google Artifact Registry
         uses: docker/build-push-action@e551b19e49efd4e98792db7592c17c09b89db8d8
