@@ -1,7 +1,6 @@
 package binance
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -164,9 +163,8 @@ func (b *Binance) Subscribe() {
 					b.lock.Lock()
 					b.in = true
 
-					if err := b.store.AddRecord(context.Background(), &high, &low, val); err != nil {
-						log.WithError(err).Panic()
-					}
+					b.store.QueueRecord(&high, &low, val)
+
 					time.Sleep(time.Second * 5)
 
 					b.in = false
