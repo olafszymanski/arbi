@@ -15,6 +15,8 @@ import (
 type Store struct {
 	client     *firestore.Client
 	collection string
+	batch      *firestore.WriteBatch
+	queueSize  uint8
 }
 
 func NewStore(ctx context.Context, cfg *config.Config) *Store {
@@ -40,7 +42,8 @@ func NewStore(ctx context.Context, cfg *config.Config) *Store {
 	if err != nil {
 		log.WithError(err).Panic()
 	}
-	return &Store{client, col}
+	batch := client.Batch()
+	return &Store{client, col, batch, 0}
 }
 
 func (s *Store) Disconnect() {
@@ -49,12 +52,23 @@ func (s *Store) Disconnect() {
 	}
 }
 
-func (s *Store) AddRecord(ctx context.Context, high, low *broker.Pair, value float64) error {
-	_, _, err := s.client.Collection(s.collection).Add(ctx, map[string]interface{}{
+func (s *Store) QueueRecord(high, low *broker.Pair, value float64) {
+	ref := s.client.Collection(s.collection).NewDoc()
+	s.batch.Set(ref, map[string]interface{}{
 		"high":      *high,
 		"low":       *low,
 		"value":     value,
 		"timestamp": time.Now(),
 	})
+	s.queueSize++
+}
+
+func (s *Store) Commit(ctx context.Context) error {
+	var err error = nil
+	if s.queueSize == 100 {
+		_, err = s.batch.Commit(ctx)
+		s.queueSize = 0
+		s.batch = s.client.Batch()
+	}
 	return err
 }
