@@ -1,8 +1,9 @@
 app:
   development: 1
-  use_db: 0
+  use_db: 1
 
 binance:
   fee: 0.001
-  min_profit: 1.0015
+  min_profit: 0.98
   conversion: 0.999
+  cooldown: 1
