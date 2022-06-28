@@ -1,4 +1,4 @@
-name: Build and deploy to Cloud Run
+name: Build and push image to GAR
 
 on:
   push:
