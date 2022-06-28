@@ -22,7 +22,6 @@ type Binance struct {
 	lock  sync.RWMutex
 	pairs broker.Pairs
 	store *database.Store
-	in    bool
 }
 
 func New(cfg *config.Config, store *database.Store, symbols map[string][]string) *Binance {
@@ -51,11 +50,12 @@ func New(cfg *config.Config, store *database.Store, symbols map[string][]string)
 		cfg:   cfg,
 		pairs: prs,
 		store: store,
-		in:    false,
 	}
 }
 
 func (b *Binance) Subscribe(done chan struct{}) {
+	isIn := false
+
 	for sym, pr := range b.pairs {
 		sym := sym
 		pr := pr
@@ -88,9 +88,9 @@ func (b *Binance) Subscribe(done chan struct{}) {
 				b.lock.Unlock()
 
 				val := broker.Profitability(&high, &low, b.cfg.Binance.Fee, b.cfg.Binance.Conversion)
-				if val > b.cfg.Binance.MinProfit && b.cfg.App.UseDB > 0 && !b.in {
+				if val > b.cfg.Binance.MinProfit && b.cfg.App.UseDB > 0 && !isIn {
 					b.lock.Lock()
-					b.in = true
+					isIn = true
 
 					b.store.PushRecord(&high, &low, val)
 					log.WithFields(log.Fields{
@@ -101,7 +101,7 @@ func (b *Binance) Subscribe(done chan struct{}) {
 
 					time.Sleep(time.Second * time.Duration(b.cfg.Binance.Cooldown))
 
-					b.in = false
+					isIn = false
 					b.lock.Unlock()
 				}
 
