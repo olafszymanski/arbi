@@ -98,7 +98,7 @@ func (b *Binance) Subscribe(done chan struct{}) {
 
 					b.store.QueueRecord(&high, &low, val)
 
-					time.Sleep(time.Second * 5)
+					time.Sleep(time.Second * time.Duration(b.cfg.Binance.Cooldown))
 
 					b.in = false
 					b.lock.Unlock()
