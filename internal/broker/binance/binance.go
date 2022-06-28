@@ -53,7 +53,7 @@ func New(cfg *config.Config, store *database.Store, symbols map[string][]string)
 	}
 }
 
-func (b *Binance) Subscribe(done chan struct{}) {
+func (b *Binance) Subscribe(ctx context.Context, done chan struct{}) {
 	isIn := false
 
 	for sym, pr := range b.pairs {
@@ -105,7 +105,7 @@ func (b *Binance) Subscribe(done chan struct{}) {
 					b.lock.Unlock()
 				}
 
-				if err := b.store.Commit(context.Background()); err != nil {
+				if err := b.store.Commit(ctx); err != nil {
 					log.WithError(err).Panic()
 				}
 			}

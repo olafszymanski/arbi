@@ -40,7 +40,7 @@ func main() {
 			"DAI",
 		},
 	})
-	binance.Subscribe(done)
+	binance.Subscribe(context.Background(), done)
 
 	for {
 		select {
