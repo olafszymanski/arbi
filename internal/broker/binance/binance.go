@@ -1,8 +1,6 @@
 package binance
 
 import (
-	"os"
-	"os/signal"
 	"strconv"
 	"sync"
 	"time"
@@ -56,11 +54,7 @@ func New(cfg *config.Config, store *database.Store, symbols map[string][]string)
 	}
 }
 
-func (b *Binance) Subscribe() {
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt)
-	done := make(chan struct{})
-
+func (b *Binance) Subscribe(done chan struct{}) {
 	for sym, pr := range b.pairs {
 		sym := sym
 		pr := pr
@@ -111,18 +105,5 @@ func (b *Binance) Subscribe() {
 				}
 			}
 		}()
-	}
-
-	for {
-		select {
-		case <-done:
-			return
-		case <-interrupt:
-			select {
-			case <-done:
-			case <-time.After(time.Microsecond):
-			}
-			return
-		}
 	}
 }

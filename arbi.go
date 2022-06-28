@@ -2,34 +2,25 @@ package main
 
 import (
 	"context"
-
-	log "github.com/sirupsen/logrus"
+	"os"
+	"os/signal"
+	"time"
 
 	"github.com/olafszymanski/arbi/config"
-	broker "github.com/olafszymanski/arbi/internal/broker/binance"
+	"github.com/olafszymanski/arbi/internal/broker/binance"
 	"github.com/olafszymanski/arbi/internal/database"
 )
 
 func main() {
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
+	done := make(chan struct{})
+
 	cfg := config.NewConfig("config/config.yml")
 	s := database.NewStore(context.Background(), cfg)
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				log.WithError(r.(error)).Error("Goroutine panicked while commiting to the firestore")
-			}
-		}()
-
-		for {
-			err := s.Commit(context.Background())
-			if err != nil {
-				log.WithError(err).Panic()
-			}
-		}
-	}()
 	defer s.Disconnect()
 
-	binance := broker.NewBinance(cfg, s, map[string][]string{
+	binance := binance.New(cfg, s, map[string][]string{
 		"BTC": {
 			"USDT",
 			"USDC",
@@ -49,8 +40,18 @@ func main() {
 			"DAI",
 		},
 	})
-	binance.Subscribe()
+	binance.Subscribe(done)
 
 	for {
+		select {
+		case <-done:
+			return
+		case <-interrupt:
+			select {
+			case <-done:
+			case <-time.After(time.Microsecond):
+			}
+			return
+		}
 	}
 }
