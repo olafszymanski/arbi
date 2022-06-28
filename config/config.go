@@ -20,6 +20,7 @@ type Config struct {
 		Fee        float64 `yaml:"fee"`
 		MinProfit  float64 `yaml:"min_profit"`
 		Conversion float64 `yaml:"conversion"`
+		Cooldown   uint16  `yaml:"cooldown"`
 	} `yaml:"binance"`
 }
 

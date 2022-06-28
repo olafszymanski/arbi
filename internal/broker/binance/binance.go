@@ -1,88 +1,20 @@
 package binance
 
 import (
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"net/http"
+	"context"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/olafszymanski/arbi/config"
 	"github.com/olafszymanski/arbi/internal/broker"
 	"github.com/olafszymanski/arbi/internal/database"
 	log "github.com/sirupsen/logrus"
 )
 
-type BinanceResult struct {
+type Result struct {
 	Symbol string `json:"s"`
 	Price  string `json:"c"`
-}
-
-type BinanceWebsocket struct {
-	conn *websocket.Conn
-}
-
-func NewBinanceWebsocket(cfg *config.Config, symbol string) *BinanceWebsocket {
-	conn, _, err := websocket.DefaultDialer.Dial(makeWebsocketUrl(symbol), nil)
-	if err != nil {
-		log.WithError(err).Panic()
-	}
-	return &BinanceWebsocket{conn}
-}
-
-func (b *BinanceWebsocket) Read() BinanceResult {
-	_, data, err := b.conn.ReadMessage()
-	if err != nil {
-		log.WithError(err).Panic()
-	}
-
-	var res BinanceResult
-	if err := json.Unmarshal(data, &res); err != nil {
-		log.WithError(err).Panic()
-	}
-	return res
-}
-
-func (b *BinanceWebsocket) Close() {
-	b.conn.Close()
-}
-
-type BinancePricesAPI struct {
-}
-
-func NewBinancePricesAPI() *BinancePricesAPI {
-	return &BinancePricesAPI{}
-}
-
-func (b *BinancePricesAPI) Read(cfg *config.Config, symbols map[string][]string) []BinanceResult {
-	type result struct {
-		Symbol string `json:"symbol"`
-		Price  string `json:"price"`
-	}
-
-	data, err := http.Get(makeApiUrl(symbols))
-	if err != nil {
-		log.WithError(err).Panic()
-	}
-	defer data.Body.Close()
-	body, err := ioutil.ReadAll(data.Body)
-	if err != nil {
-		log.WithError(err).Panic()
-	}
-
-	var tmpRes []result
-	if err := json.Unmarshal(body, &tmpRes); err != nil {
-		log.WithError(err).Panic()
-	}
-	var res []BinanceResult
-	for _, r := range tmpRes {
-		res = append(res, BinanceResult(r))
-	}
-	return res
 }
 
 type Binance struct {
@@ -90,11 +22,10 @@ type Binance struct {
 	lock  sync.RWMutex
 	pairs broker.Pairs
 	store *database.Store
-	in    bool
 }
 
-func NewBinance(cfg *config.Config, store *database.Store, symbols map[string][]string) *Binance {
-	api := NewBinancePricesAPI()
+func New(cfg *config.Config, store *database.Store, symbols map[string][]string) *Binance {
+	api := NewPricesAPI()
 	res := api.Read(cfg, symbols)
 	prs := make(broker.Pairs)
 	for key, syms := range symbols {
@@ -119,22 +50,25 @@ func NewBinance(cfg *config.Config, store *database.Store, symbols map[string][]
 		cfg:   cfg,
 		pairs: prs,
 		store: store,
-		in:    false,
 	}
 }
 
-func (b *Binance) Subscribe() {
+func (b *Binance) Subscribe(ctx context.Context, done chan struct{}) {
+	isIn := false
+
 	for sym, pr := range b.pairs {
 		sym := sym
 		pr := pr
+
 		go func() {
+			defer close(done)
 			defer func() {
 				if r := recover(); r != nil {
 					log.WithError(r.(error)).Error("Goroutine - '", sym, "' - panicked")
 				}
 			}()
 
-			ws := NewBinanceWebsocket(b.cfg, sym)
+			ws := NewWebsocket(b.cfg, sym)
 			defer ws.Close()
 			log.Info("Connected to '", sym, "' websocket")
 
@@ -154,40 +88,27 @@ func (b *Binance) Subscribe() {
 				b.lock.Unlock()
 
 				val := broker.Profitability(&high, &low, b.cfg.Binance.Fee, b.cfg.Binance.Conversion)
-				log.WithFields(log.Fields{
-					"high": high,
-					"low":  low,
-					"val":  val,
-				}).Info("Websocket received")
-				if val > b.cfg.Binance.MinProfit && b.cfg.App.UseDB > 0 && !b.in {
+				if val > b.cfg.Binance.MinProfit && b.cfg.App.UseDB > 0 && !isIn {
 					b.lock.Lock()
-					b.in = true
+					isIn = true
 
-					b.store.QueueRecord(&high, &low, val)
+					b.store.PushRecord(&high, &low, val)
+					log.WithFields(log.Fields{
+						"high": high,
+						"low":  low,
+						"val":  val,
+					}).Info("Pushed to store queue")
 
-					time.Sleep(time.Second * 5)
+					time.Sleep(time.Second * time.Duration(b.cfg.Binance.Cooldown))
 
-					b.in = false
+					isIn = false
 					b.lock.Unlock()
+				}
+
+				if err := b.store.Commit(ctx); err != nil {
+					log.WithError(err).Panic()
 				}
 			}
 		}()
 	}
-}
-
-func makeWebsocketUrl(pair string) string {
-	return fmt.Sprintf("wss://stream.binance.com/ws/%s@miniTicker", strings.ToLower(pair))
-}
-
-func makeApiUrl(symbols map[string][]string) string {
-	url := "https://api.binance.com/api/v3/ticker/price?symbols=["
-	tmpSyms := make([]string, 0, len(symbols))
-	for crypto, stables := range symbols {
-		for _, stable := range stables {
-			tmpSyms = append(tmpSyms, fmt.Sprintf(`"%s"`, crypto+stable))
-		}
-	}
-	syms := strings.Join(tmpSyms, ",")
-	url += syms + "]"
-	return url
 }
