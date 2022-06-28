@@ -1,6 +1,7 @@
 package binance
 
 import (
+	"context"
 	"strconv"
 	"sync"
 	"time"
@@ -87,21 +88,25 @@ func (b *Binance) Subscribe(done chan struct{}) {
 				b.lock.Unlock()
 
 				val := broker.Profitability(&high, &low, b.cfg.Binance.Fee, b.cfg.Binance.Conversion)
-				log.WithFields(log.Fields{
-					"high": high,
-					"low":  low,
-					"val":  val,
-				}).Info("Websocket received")
 				if val > b.cfg.Binance.MinProfit && b.cfg.App.UseDB > 0 && !b.in {
 					b.lock.Lock()
 					b.in = true
 
-					b.store.QueueRecord(&high, &low, val)
+					b.store.PushRecord(&high, &low, val)
+					log.WithFields(log.Fields{
+						"high": high,
+						"low":  low,
+						"val":  val,
+					}).Info("Pushed to store queue")
 
 					time.Sleep(time.Second * time.Duration(b.cfg.Binance.Cooldown))
 
 					b.in = false
 					b.lock.Unlock()
+				}
+
+				if err := b.store.Commit(context.Background()); err != nil {
+					log.WithError(err).Panic()
 				}
 			}
 		}()

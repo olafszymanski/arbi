@@ -52,7 +52,7 @@ func (s *Store) Disconnect() {
 	}
 }
 
-func (s *Store) QueueRecord(high, low *broker.Pair, value float64) {
+func (s *Store) PushRecord(high, low *broker.Pair, value float64) {
 	ref := s.client.Collection(s.collection).NewDoc()
 	s.batch.Set(ref, map[string]interface{}{
 		"high":      *high,
@@ -65,7 +65,7 @@ func (s *Store) QueueRecord(high, low *broker.Pair, value float64) {
 
 func (s *Store) Commit(ctx context.Context) error {
 	var err error = nil
-	if s.queueSize == 100 {
+	if s.queueSize > 10 {
 		_, err = s.batch.Commit(ctx)
 		s.queueSize = 0
 		s.batch = s.client.Batch()
