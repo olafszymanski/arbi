@@ -9,9 +9,13 @@ import (
 	"github.com/olafszymanski/arbi/config"
 	"github.com/olafszymanski/arbi/internal/broker/binance"
 	"github.com/olafszymanski/arbi/internal/database"
+	log "github.com/sirupsen/logrus"
 )
 
 func main() {
+	log.SetReportCaller(true)
+	log.SetFormatter(&log.JSONFormatter{})
+
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 	done := make(chan struct{})
