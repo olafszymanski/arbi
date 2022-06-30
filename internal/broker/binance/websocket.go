@@ -15,14 +15,14 @@ type Websocket struct {
 }
 
 func NewWebsocket(cfg *config.Config, symbol string) *Websocket {
-	conn, _, err := websocket.DefaultDialer.Dial(makeWebsocketUrl(symbol), nil)
+	conn, _, err := websocket.DefaultDialer.Dial(websocketUrl(symbol), nil)
 	i := 0
 	for err != nil {
 		if i > cfg.App.MaxTimeouts {
 			log.WithError(err).Panic()
 		}
 		time.Sleep(time.Duration(cfg.App.TimeoutInterval) * time.Second)
-		conn, _, err = websocket.DefaultDialer.Dial(makeWebsocketUrl(symbol), nil)
+		conn, _, err = websocket.DefaultDialer.Dial(websocketUrl(symbol), nil)
 		i++
 	}
 	return &Websocket{cfg, conn}

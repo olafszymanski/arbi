@@ -9,20 +9,22 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type PricesAPI struct {
+type API struct {
+	cfg    *config.Config
+	client *http.Client
 }
 
-func NewPricesAPI() *PricesAPI {
-	return &PricesAPI{}
+func NewAPI(cfg *config.Config) *API {
+	return &API{cfg, &http.Client{}}
 }
 
-func (b *PricesAPI) Read(cfg *config.Config, symbols map[string][]string) []Result {
+func (a *API) Read(symbols map[string][]string) []Result {
 	type tempResult struct {
 		Symbol string `json:"symbol"`
 		Price  string `json:"price"`
 	}
 
-	data, err := http.Get(makeApiUrl(symbols))
+	data, err := http.Get(apiUrl(symbols))
 	if err != nil {
 		log.WithError(err).Panic()
 	}

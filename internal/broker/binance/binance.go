@@ -18,15 +18,17 @@ type Result struct {
 }
 
 type Binance struct {
-	cfg   *config.Config
-	lock  sync.RWMutex
-	pairs broker.Pairs
-	store *database.Store
+	cfg     *config.Config
+	lock    sync.RWMutex
+	pairs   broker.Pairs
+	store   *database.Store
+	api     *API
+	blocked bool
 }
 
 func New(cfg *config.Config, store *database.Store, symbols map[string][]string) *Binance {
-	api := NewPricesAPI()
-	res := api.Read(cfg, symbols)
+	api := NewAPI(cfg)
+	res := api.Read(symbols)
 	prs := make(broker.Pairs)
 	for key, syms := range symbols {
 		for _, sym := range syms {
@@ -47,15 +49,15 @@ func New(cfg *config.Config, store *database.Store, symbols map[string][]string)
 		}
 	}
 	return &Binance{
-		cfg:   cfg,
-		pairs: prs,
-		store: store,
+		cfg:     cfg,
+		pairs:   prs,
+		store:   store,
+		api:     api,
+		blocked: false,
 	}
 }
 
 func (b *Binance) Subscribe(ctx context.Context, done chan struct{}) {
-	isIn := false
-
 	for sym, pr := range b.pairs {
 		sym := sym
 		pr := pr
@@ -64,7 +66,7 @@ func (b *Binance) Subscribe(ctx context.Context, done chan struct{}) {
 			defer close(done)
 			defer func() {
 				if r := recover(); r != nil {
-					log.WithError(r.(error)).Error("Goroutine - '", sym, "' - panicked")
+					log.Error("Goroutine - '", sym, "' - panicked")
 				}
 			}()
 
@@ -88,9 +90,13 @@ func (b *Binance) Subscribe(ctx context.Context, done chan struct{}) {
 				b.lock.Unlock()
 
 				val := broker.Profitability(&high, &low, b.cfg.Binance.Fee, b.cfg.Binance.Conversion)
-				if val > b.cfg.Binance.MinProfit && b.cfg.App.UseDB > 0 && !isIn {
+				if val > b.cfg.Binance.MinProfit && b.cfg.App.UseDB < 1 && !b.blocked {
 					b.lock.Lock()
-					isIn = true
+					b.blocked = true
+
+					// b.api.NewOrder(high.Crypto+high.Stable, "SELL")
+					// b.api.NewOrder(high.Stable+low.Stable, "BUY")
+					// b.api.NewOrder(high.Crypto+low.Stable, "SELL")
 
 					b.store.PushRecord(&high, &low, val)
 					log.WithFields(log.Fields{
@@ -101,7 +107,7 @@ func (b *Binance) Subscribe(ctx context.Context, done chan struct{}) {
 
 					time.Sleep(time.Second * time.Duration(b.cfg.Binance.Cooldown))
 
-					isIn = false
+					b.blocked = false
 					b.lock.Unlock()
 				}
 
