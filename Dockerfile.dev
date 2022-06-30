@@ -26,7 +26,7 @@ RUN mkdir /config
 
 COPY --from=build /src/arbi .
 
-COPY --from=build /src/config/config.yml ./config
+COPY --from=build /src/config/config.dev.yml ./config/config.yml
 
 COPY --from=build /src/credentials.json .
 

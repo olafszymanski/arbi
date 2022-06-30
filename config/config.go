@@ -14,6 +14,9 @@ type Config struct {
 		UseDB       uint8  `yaml:"use_db"`
 		GcpID       string `yaml:"-"`
 	} `yaml:"app"`
+	Database struct {
+		Collection string `yaml:"collection"`
+	}
 	Binance struct {
 		ApiKey     string  `yaml:"-"`
 		SecretKey  string  `yaml:"-"`
