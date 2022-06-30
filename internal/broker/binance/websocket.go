@@ -2,6 +2,7 @@ package binance
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/olafszymanski/arbi/config"
@@ -9,21 +10,34 @@ import (
 )
 
 type Websocket struct {
+	cfg  *config.Config
 	conn *websocket.Conn
 }
 
 func NewWebsocket(cfg *config.Config, symbol string) *Websocket {
 	conn, _, err := websocket.DefaultDialer.Dial(makeWebsocketUrl(symbol), nil)
-	if err != nil {
-		log.WithError(err).Panic()
+	i := 0
+	for err != nil {
+		if i > cfg.App.MaxTimeouts {
+			log.WithError(err).Panic()
+		}
+		time.Sleep(time.Duration(cfg.App.TimeoutInterval) * time.Second)
+		conn, _, err = websocket.DefaultDialer.Dial(makeWebsocketUrl(symbol), nil)
+		i++
 	}
-	return &Websocket{conn}
+	return &Websocket{cfg, conn}
 }
 
-func (b *Websocket) Read() Result {
-	_, data, err := b.conn.ReadMessage()
-	if err != nil {
-		log.WithError(err).Panic()
+func (w *Websocket) Read() Result {
+	_, data, err := w.conn.ReadMessage()
+	i := 0
+	for err != nil {
+		if i > w.cfg.App.MaxTimeouts {
+			log.WithError(err).Panic()
+		}
+		time.Sleep(time.Duration(w.cfg.App.TimeoutInterval) * time.Second)
+		_, data, err = w.conn.ReadMessage()
+		i++
 	}
 
 	var res Result
@@ -33,6 +47,6 @@ func (b *Websocket) Read() Result {
 	return res
 }
 
-func (b *Websocket) Close() {
-	b.conn.Close()
+func (w *Websocket) Close() {
+	w.conn.Close()
 }

@@ -10,9 +10,11 @@ import (
 
 type Config struct {
 	App struct {
-		Development uint8  `yaml:"development"`
-		UseDB       uint8  `yaml:"use_db"`
-		GcpID       string `yaml:"-"`
+		Development     uint8  `yaml:"development"`
+		UseDB           uint8  `yaml:"use_db"`
+		GcpID           string `yaml:"-"`
+		TimeoutInterval int    `yaml:"timeout_interval"`
+		MaxTimeouts     int    `yaml:"max_timeouts"`
 	} `yaml:"app"`
 	Database struct {
 		Collection string `yaml:"collection"`
