@@ -27,9 +27,9 @@ type Config struct {
 	} `yaml:"binance"`
 }
 
-func NewConfig(path string) *Config {
+func NewConfig() *Config {
 	var cfg *Config
-	f, err := ioutil.ReadFile(path)
+	f, err := ioutil.ReadFile("config/config.yml")
 	if err != nil {
 		log.WithError(err).Panic()
 	}
