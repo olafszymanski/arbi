@@ -13,27 +13,23 @@ import (
 )
 
 type Store struct {
-	client     *firestore.Client
-	collection string
-	batch      *firestore.WriteBatch
-	queueSize  uint8
+	cfg       *config.Config
+	client    *firestore.Client
+	batch     *firestore.WriteBatch
+	queueSize uint8
 }
 
 func NewStore(ctx context.Context, cfg *config.Config) *Store {
 	var (
-		col string
-		app *firebase.App
-		err error
+		cred option.ClientOption = nil
+		app  *firebase.App
+		err  error
 	)
 	fbCfg := &firebase.Config{ProjectID: cfg.App.GcpID}
 	if cfg.App.Development > 0 {
-		cred := option.WithCredentialsFile("credentials.json")
-		col = "records-dev"
-		app, err = firebase.NewApp(ctx, fbCfg, cred)
-	} else {
-		col = "records"
-		app, err = firebase.NewApp(ctx, fbCfg)
+		cred = option.WithCredentialsFile("credentials.json")
 	}
+	app, err = firebase.NewApp(ctx, fbCfg, cred)
 	if err != nil {
 		log.WithError(err).Panic()
 	}
@@ -43,7 +39,7 @@ func NewStore(ctx context.Context, cfg *config.Config) *Store {
 		log.WithError(err).Panic()
 	}
 	batch := client.Batch()
-	return &Store{client, col, batch, 0}
+	return &Store{cfg, client, batch, 0}
 }
 
 func (s *Store) Disconnect() {
@@ -53,7 +49,7 @@ func (s *Store) Disconnect() {
 }
 
 func (s *Store) PushRecord(high, low *broker.Pair, value float64) {
-	ref := s.client.Collection(s.collection).NewDoc()
+	ref := s.client.Collection(s.cfg.Database.Collection).NewDoc()
 	s.batch.Set(ref, map[string]interface{}{
 		"high":      *high,
 		"low":       *low,

@@ -16,7 +16,7 @@ func main() {
 	signal.Notify(interrupt, os.Interrupt)
 	done := make(chan struct{})
 
-	cfg := config.NewConfig("config/config.yml")
+	cfg := config.NewConfig()
 	s := database.NewStore(context.Background(), cfg)
 	defer s.Disconnect()
 

@@ -10,10 +10,15 @@ import (
 
 type Config struct {
 	App struct {
-		Development uint8  `yaml:"development"`
-		UseDB       uint8  `yaml:"use_db"`
-		GcpID       string `yaml:"-"`
+		Development     uint8  `yaml:"development"`
+		UseDB           uint8  `yaml:"use_db"`
+		GcpID           string `yaml:"-"`
+		TimeoutInterval int    `yaml:"timeout_interval"`
+		MaxTimeouts     int    `yaml:"max_timeouts"`
 	} `yaml:"app"`
+	Database struct {
+		Collection string `yaml:"collection"`
+	}
 	Binance struct {
 		ApiKey     string  `yaml:"-"`
 		SecretKey  string  `yaml:"-"`
@@ -24,9 +29,9 @@ type Config struct {
 	} `yaml:"binance"`
 }
 
-func NewConfig(path string) *Config {
+func NewConfig() *Config {
 	var cfg *Config
-	f, err := ioutil.ReadFile(path)
+	f, err := ioutil.ReadFile("config/config.yml")
 	if err != nil {
 		log.WithError(err).Panic()
 	}

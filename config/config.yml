@@ -1,6 +1,11 @@
 app:
   development: 0
   use_db: 1
+  retry_interval: 15
+  max_connection_retries: 8
+
+database:
+  collection: records
 
 binance:
   fee: 0.001
