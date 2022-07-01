@@ -2,7 +2,6 @@ package binance
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -56,7 +55,6 @@ func New(cfg *config.Config, store *database.Store, symbols map[string][]string)
 	for _, blc := range blcs {
 		acc[blc.Asset] = blc.Amount
 	}
-	fmt.Println(acc)
 	return &Binance{
 		cfg:     cfg,
 		pairs:   prs,
