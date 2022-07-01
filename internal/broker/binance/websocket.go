@@ -32,8 +32,8 @@ func NewWebsocket(cfg *config.Config, symbol string) *Websocket {
 
 func (w *Websocket) ReadPrice() Price {
 	type tempPrice struct {
-		Symbol string `json:"symbol"`
-		Price  string `json:"price"`
+		Symbol string `json:"s"`
+		Price  string `json:"c"`
 	}
 
 	_, data, err := w.conn.ReadMessage()
