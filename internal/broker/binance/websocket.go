@@ -2,6 +2,8 @@ package binance
 
 import (
 	"encoding/json"
+	"errors"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -10,40 +12,34 @@ import (
 )
 
 type Websocket struct {
-	cfg  *config.Config
-	conn *websocket.Conn
+	cfg    *config.Config
+	conn   *websocket.Conn
+	symbol string
 }
 
 func NewWebsocket(cfg *config.Config, symbol string) *Websocket {
-	url := websocketUrl(symbol)
-	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
-	i := 0
-	for err != nil {
-		if i > cfg.App.MaxTimeouts {
-			log.WithError(err).Panic()
-		}
-		time.Sleep(time.Duration(cfg.App.TimeoutInterval) * time.Second)
-		conn, _, err = websocket.DefaultDialer.Dial(url, nil)
-		i++
+	conn, _, err := websocket.DefaultDialer.Dial(websocketUrl(symbol), nil)
+	if err != nil {
+		log.WithError(err).Panic()
 	}
 
 	conn.SetPingHandler(func(appData string) error {
 		return conn.WriteControl(websocket.PongMessage, []byte("pong"), time.Now().Add(5*time.Second))
 	})
 
-	return &Websocket{cfg, conn}
+	return &Websocket{cfg, conn, symbol}
 }
 
 func (w *Websocket) Read() Result {
 	_, data, err := w.conn.ReadMessage()
-	i := 0
-	for err != nil {
-		if i > w.cfg.App.MaxTimeouts {
+	if err != nil {
+		if errors.Is(err, syscall.ECONNRESET) {
+			log.Warn("Websocket '", w.symbol, "' disconnected, retrying...")
+			w.Reconnect()
+			return w.Read()
+		} else {
 			log.WithError(err).Panic()
 		}
-		time.Sleep(time.Duration(w.cfg.App.TimeoutInterval) * time.Second)
-		_, data, err = w.conn.ReadMessage()
-		i++
 	}
 
 	var res Result
@@ -55,4 +51,17 @@ func (w *Websocket) Read() Result {
 
 func (w *Websocket) Close() {
 	w.conn.Close()
+}
+
+func (w *Websocket) Reconnect() {
+	conn, _, err := websocket.DefaultDialer.Dial(websocketUrl(w.symbol), nil)
+	if err != nil {
+		log.WithError(err).Panic()
+	}
+
+	conn.SetPingHandler(func(appData string) error {
+		return conn.WriteControl(websocket.PongMessage, []byte("pong"), time.Now().Add(5*time.Second))
+	})
+
+	w.conn = conn
 }
