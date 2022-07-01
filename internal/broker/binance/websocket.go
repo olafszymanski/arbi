@@ -3,6 +3,7 @@ package binance
 import (
 	"encoding/json"
 	"errors"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -30,23 +31,32 @@ func NewWebsocket(cfg *config.Config, symbol string) *Websocket {
 	return &Websocket{cfg, conn, symbol}
 }
 
-func (w *Websocket) Read() PairResult {
+func (w *Websocket) ReadPrice() Price {
+	type tempPrice struct {
+		Symbol string `json:"symbol"`
+		Price  string `json:"price"`
+	}
+
 	_, data, err := w.conn.ReadMessage()
 	if err != nil {
 		if errors.Is(err, syscall.ECONNRESET) {
 			log.Warn("Websocket '", w.symbol, "' disconnected, retrying...")
 			w.Reconnect()
-			return w.Read()
+			return w.ReadPrice()
 		} else {
 			log.WithError(err).Panic()
 		}
 	}
 
-	var res PairResult
-	if err := json.Unmarshal(data, &res); err != nil {
+	var tmpRes tempPrice
+	if err := json.Unmarshal(data, &tmpRes); err != nil {
 		log.WithError(err).Panic()
 	}
-	return res
+	prc, err := strconv.ParseFloat(tmpRes.Price, 64)
+	if err != nil {
+		log.WithError(err).Panic()
+	}
+	return Price{tmpRes.Symbol, prc}
 }
 
 func (w *Websocket) Close() {

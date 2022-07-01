@@ -3,7 +3,6 @@ package binance
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
@@ -13,14 +12,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type PairResult struct {
-	Symbol string `json:"s"`
-	Price  string `json:"c"`
+type Price struct {
+	Symbol string
+	Price  float64
 }
 
-type BalanceResult struct {
-	Asset string `json:"asset"`
-	Free  string `json:"free"`
+type Balance struct {
+	Asset  string
+	Amount float64
 }
 
 type Binance struct {
@@ -42,14 +41,10 @@ func New(cfg *config.Config, store *database.Store, symbols map[string][]string)
 			s := key + sym
 			for _, pr := range prcs {
 				if pr.Symbol == s {
-					prc, err := strconv.ParseFloat(pr.Price, 64)
-					if err != nil {
-						log.WithError(err).Panic()
-					}
 					prs[s] = broker.Pair{
 						Crypto: key,
 						Stable: sym,
-						Price:  prc,
+						Price:  pr.Price,
 					}
 				}
 			}
@@ -59,11 +54,7 @@ func New(cfg *config.Config, store *database.Store, symbols map[string][]string)
 	blcs := api.ReadBalances(symbols)
 	acc := make(broker.Account, 0)
 	for _, blc := range blcs {
-		prc, err := strconv.ParseFloat(blc.Free, 64)
-		if err != nil {
-			log.WithError(err).Panic()
-		}
-		acc[blc.Asset] = prc
+		acc[blc.Asset] = blc.Amount
 	}
 	fmt.Println(acc)
 	return &Binance{
@@ -94,16 +85,12 @@ func (b *Binance) Subscribe(ctx context.Context, done chan struct{}) {
 			log.Info("Connected to '", sym, "' websocket")
 
 			for {
-				res := ws.Read()
-				prc, err := strconv.ParseFloat(res.Price, 64)
-				if err != nil {
-					log.WithError(err).Panic()
-				}
+				res := ws.ReadPrice()
 				b.lock.Lock()
 				b.pairs[sym] = broker.Pair{
 					Crypto: pr.Crypto,
 					Stable: pr.Stable,
-					Price:  prc,
+					Price:  res.Price,
 				}
 				high, low := b.pairs.HighestLowest(pr.Crypto)
 				b.lock.Unlock()

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 
 	"github.com/olafszymanski/arbi/config"
 	log "github.com/sirupsen/logrus"
@@ -19,8 +20,8 @@ func NewAPI(cfg *config.Config) *API {
 	return &API{cfg, &http.Client{}}
 }
 
-func (a *API) ReadPrices(symbols map[string][]string) []PairResult {
-	type tempResult struct {
+func (a *API) ReadPrices(symbols map[string][]string) []Price {
+	type tempPrice struct {
 		Symbol string `json:"symbol"`
 		Price  string `json:"price"`
 	}
@@ -35,20 +36,28 @@ func (a *API) ReadPrices(symbols map[string][]string) []PairResult {
 		log.WithError(err).Panic()
 	}
 
-	var tmpRes []tempResult
+	var tmpRes []tempPrice
 	if err := json.Unmarshal(body, &tmpRes); err != nil {
 		log.WithError(err).Panic()
 	}
-	var res []PairResult
+	var res []Price
 	for _, r := range tmpRes {
-		res = append(res, PairResult(r))
+		prc, err := strconv.ParseFloat(r.Price, 64)
+		if err != nil {
+			log.WithError(err).Panic()
+		}
+		res = append(res, Price{r.Symbol, prc})
 	}
 	return res
 }
 
-func (a *API) ReadBalances(symbols map[string][]string) []BalanceResult {
-	type tempBalanceResult struct {
-		Balances []BalanceResult `json:"balances"`
+func (a *API) ReadBalances(symbols map[string][]string) []Balance {
+	type tempBalance struct {
+		Asset  string `json:"asset"`
+		Amount string `json:"free"`
+	}
+	type tempBalances struct {
+		Balances []tempBalance `json:"balances"`
 	}
 
 	req, _ := http.NewRequest("GET", apiBalancesUrl(a.cfg), nil)
@@ -63,19 +72,23 @@ func (a *API) ReadBalances(symbols map[string][]string) []BalanceResult {
 		log.WithError(err).Panic()
 	}
 
-	var tmpRes tempBalanceResult
+	var tmpRes tempBalances
 	if err := json.Unmarshal(body, &tmpRes); err != nil {
 		log.WithError(err).Panic()
 	}
-	var res []BalanceResult
+	var res []Balance
 	for crp, stbs := range symbols {
 		for _, r := range tmpRes.Balances {
+			amt, err := strconv.ParseFloat(r.Amount, 64)
+			if err != nil {
+				log.WithError(err).Panic()
+			}
 			if r.Asset == crp {
-				res = append(res, BalanceResult{r.Asset, r.Free})
+				res = append(res, Balance{r.Asset, amt})
 			} else {
 				for _, s := range stbs {
 					if r.Asset == s {
-						res = append(res, BalanceResult{r.Asset, r.Free})
+						res = append(res, Balance{r.Asset, amt})
 					}
 				}
 			}
