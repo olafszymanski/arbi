@@ -30,7 +30,7 @@ func NewWebsocket(cfg *config.Config, symbol string) *Websocket {
 	return &Websocket{cfg, conn, symbol}
 }
 
-func (w *Websocket) Read() Result {
+func (w *Websocket) Read() PairResult {
 	_, data, err := w.conn.ReadMessage()
 	if err != nil {
 		if errors.Is(err, syscall.ECONNRESET) {
@@ -42,7 +42,7 @@ func (w *Websocket) Read() Result {
 		}
 	}
 
-	var res Result
+	var res PairResult
 	if err := json.Unmarshal(data, &res); err != nil {
 		log.WithError(err).Panic()
 	}

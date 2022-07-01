@@ -2,6 +2,7 @@ package binance
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -12,15 +13,21 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type Result struct {
+type PairResult struct {
 	Symbol string `json:"s"`
 	Price  string `json:"c"`
+}
+
+type BalanceResult struct {
+	Asset string `json:"asset"`
+	Free  string `json:"free"`
 }
 
 type Binance struct {
 	cfg     *config.Config
 	lock    sync.RWMutex
 	pairs   broker.Pairs
+	account broker.Account
 	store   *database.Store
 	api     *API
 	blocked bool
@@ -28,12 +35,12 @@ type Binance struct {
 
 func New(cfg *config.Config, store *database.Store, symbols map[string][]string) *Binance {
 	api := NewAPI(cfg)
-	res := api.Read(symbols)
+	prcs := api.ReadPrices(symbols)
 	prs := make(broker.Pairs)
 	for key, syms := range symbols {
 		for _, sym := range syms {
 			s := key + sym
-			for _, pr := range res {
+			for _, pr := range prcs {
 				if pr.Symbol == s {
 					prc, err := strconv.ParseFloat(pr.Price, 64)
 					if err != nil {
@@ -48,9 +55,21 @@ func New(cfg *config.Config, store *database.Store, symbols map[string][]string)
 			}
 		}
 	}
+
+	blcs := api.ReadBalances(symbols)
+	acc := make(broker.Account, 0)
+	for _, blc := range blcs {
+		prc, err := strconv.ParseFloat(blc.Free, 64)
+		if err != nil {
+			log.WithError(err).Panic()
+		}
+		acc[blc.Asset] = prc
+	}
+	fmt.Println(acc)
 	return &Binance{
 		cfg:     cfg,
 		pairs:   prs,
+		account: acc,
 		store:   store,
 		api:     api,
 		blocked: false,
@@ -94,9 +113,13 @@ func (b *Binance) Subscribe(ctx context.Context, done chan struct{}) {
 					b.lock.Lock()
 					b.blocked = true
 
-					// b.api.NewOrder(high.Crypto+high.Stable, "SELL")
-					// b.api.NewOrder(high.Stable+low.Stable, "BUY")
-					// b.api.NewOrder(high.Crypto+low.Stable, "SELL")
+					// b.api.NewOrder(high.Crypto+high.Stable, b.account[high.Crypto], "SELL")
+					// if low.Stable == "dai" {
+					//     	b.api.NewOrder(high.Stable+low.Stable, b.account[high.Stable], "SELL")
+					// } else {
+					//		b.api.NewOrder(low.Stable+high.Stable, b.account[low.Stable], "BUY")
+					// }
+					// b.api.NewOrder(high.Crypto+low.Stable, b.account[low.Stable], "BUY")
 
 					b.store.PushRecord(&high, &low, val)
 					log.WithFields(log.Fields{

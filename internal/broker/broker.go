@@ -1,7 +1,6 @@
 package broker
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -11,11 +10,9 @@ type Pair struct {
 	Price  float64
 }
 
-func (p *Pair) String() string {
-	return fmt.Sprintf("[%s - %f]", p.Crypto+p.Stable, p.Price)
-}
-
 type Pairs map[string]Pair
+
+type Account map[string]float64
 
 func (p Pairs) HighestLowest(crypto string) (Pair, Pair) {
 	hCrp, hStb, lCrp, lStb := "", "", "", ""
