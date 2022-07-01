@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 
 	"github.com/olafszymanski/arbi/config"
 	log "github.com/sirupsen/logrus"
@@ -42,11 +41,7 @@ func (a *API) ReadPrices(symbols map[string][]string) []Price {
 	}
 	var res []Price
 	for _, r := range tmpRes {
-		prc, err := strconv.ParseFloat(r.Price, 64)
-		if err != nil {
-			log.WithError(err).Panic()
-		}
-		res = append(res, Price{r.Symbol, prc})
+		res = append(res, Price{r.Symbol, stf64(r.Price)})
 	}
 	return res
 }
@@ -79,10 +74,7 @@ func (a *API) ReadBalances(symbols map[string][]string) []Balance {
 	var res []Balance
 	for crp, stbs := range symbols {
 		for _, r := range tmpRes.Balances {
-			amt, err := strconv.ParseFloat(r.Amount, 64)
-			if err != nil {
-				log.WithError(err).Panic()
-			}
+			amt := stf64(r.Amount)
 			if r.Asset == crp {
 				res = append(res, Balance{r.Asset, amt})
 			} else {

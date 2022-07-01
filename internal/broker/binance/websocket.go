@@ -3,7 +3,6 @@ package binance
 import (
 	"encoding/json"
 	"errors"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -52,11 +51,7 @@ func (w *Websocket) ReadPrice() Price {
 	if err := json.Unmarshal(data, &tmpRes); err != nil {
 		log.WithError(err).Panic()
 	}
-	prc, err := strconv.ParseFloat(tmpRes.Price, 64)
-	if err != nil {
-		log.WithError(err).Panic()
-	}
-	return Price{tmpRes.Symbol, prc}
+	return Price{tmpRes.Symbol, stf64(tmpRes.Price)}
 }
 
 func (w *Websocket) Close() {

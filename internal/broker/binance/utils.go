@@ -4,10 +4,12 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/olafszymanski/arbi/config"
+	log "github.com/sirupsen/logrus"
 )
 
 func websocketUrl(pair string) string {
@@ -41,4 +43,12 @@ func signature(cfg *config.Config, params string) string {
 	mac := hmac.New(sha256.New, []byte(cfg.Binance.SecretKey))
 	mac.Write([]byte(params))
 	return fmt.Sprintf("%x", mac.Sum(nil))
+}
+
+func stf64(s string) float64 {
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		log.WithError(err).Panic()
+	}
+	return f
 }
