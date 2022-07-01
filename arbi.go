@@ -30,18 +30,21 @@ func main() {
 			"USDC",
 			"TUSD",
 			"DAI",
+			"BUSD",
 		},
 		"ETH": {
 			"USDT",
 			"USDC",
 			"TUSD",
 			"DAI",
+			"BUSD",
 		},
 		"BNB": {
 			"USDT",
 			"USDC",
 			"TUSD",
 			"DAI",
+			"BUSD",
 		},
 	})
 	binance.Subscribe(context.Background(), done)
