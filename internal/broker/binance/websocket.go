@@ -26,6 +26,11 @@ func NewWebsocket(cfg *config.Config, symbol string) *Websocket {
 		conn, _, err = websocket.DefaultDialer.Dial(url, nil)
 		i++
 	}
+
+	conn.SetPingHandler(func(appData string) error {
+		return conn.WriteControl(websocket.PongMessage, []byte("pong"), time.Now().Add(5*time.Second))
+	})
+
 	return &Websocket{cfg, conn}
 }
 
