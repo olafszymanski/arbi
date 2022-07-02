@@ -11,6 +11,20 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type tempPrice struct {
+	Symbol string `json:"s"`
+	Price  string `json:"c"`
+}
+type tempBalance struct {
+	Asset  string `json:"a"`
+	Amount string `json:"f"`
+}
+type tempUpdateInfo struct {
+	Type     string        `json:"e"`
+	Time     uint64        `json:"E"`
+	Balances []tempBalance `json:"B"`
+}
+
 type PricesWebsocket struct {
 	cfg    *config.Config
 	conn   *websocket.Conn
@@ -31,11 +45,6 @@ func NewPricesWebsocket(cfg *config.Config, symbol string) *PricesWebsocket {
 }
 
 func (w *PricesWebsocket) Read() broker.Price {
-	type tempPrice struct {
-		Symbol string `json:"s"`
-		Price  string `json:"c"`
-	}
-
 	var tmpPrice tempPrice
 	if err := w.conn.ReadJSON(&tmpPrice); err != nil {
 		if errors.Is(err, syscall.ECONNRESET) {
@@ -83,16 +92,6 @@ func NewUserDataWebsocket(cfg *config.Config, key string) *UserDataWebsocket {
 }
 
 func (w *UserDataWebsocket) Read() []broker.Balance {
-	type tempBalance struct {
-		Asset  string `json:"a"`
-		Amount string `json:"f"`
-	}
-	type tempUpdateInfo struct {
-		Type     string        `json:"e"`
-		Time     uint64        `json:"E"`
-		Balances []tempBalance `json:"B"`
-	}
-
 	var tmpInfo tempUpdateInfo
 	if err := w.conn.ReadJSON(&tmpInfo); err != nil {
 		if errors.Is(err, syscall.ECONNRESET) {
