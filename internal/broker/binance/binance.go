@@ -11,16 +11,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type Price struct {
-	Symbol string
-	Price  float64
-}
-
-type Balance struct {
-	Asset  string
-	Amount float64
-}
-
 type Binance struct {
 	cfg     *config.Config
 	lock    sync.RWMutex
@@ -53,7 +43,7 @@ func New(cfg *config.Config, store *database.Store, symbols map[string][]string)
 	blcs := api.ReadBalances(symbols)
 	acc := make(broker.Account, 0)
 	for _, blc := range blcs {
-		acc[blc.Asset] = blc.Amount
+		acc[blc.Asset] = blc
 	}
 	return &Binance{
 		cfg:     cfg,
@@ -83,7 +73,7 @@ func (b *Binance) Subscribe(ctx context.Context, done chan struct{}) {
 			if bals != nil {
 				b.lock.Lock()
 				for _, bal := range bals {
-					b.account[bal.Asset] = bal.Amount
+					b.account[bal.Asset] = bal
 				}
 				b.lock.Unlock()
 			}

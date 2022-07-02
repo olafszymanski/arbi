@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/olafszymanski/arbi/config"
+	"github.com/olafszymanski/arbi/internal/broker"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -31,7 +32,7 @@ func NewPricesWebsocket(cfg *config.Config, symbol string) *PricesWebsocket {
 	return &PricesWebsocket{cfg, conn, symbol}
 }
 
-func (w *PricesWebsocket) Read() Price {
+func (w *PricesWebsocket) Read() broker.Price {
 	type tempPrice struct {
 		Symbol string `json:"s"`
 		Price  string `json:"c"`
@@ -52,7 +53,10 @@ func (w *PricesWebsocket) Read() Price {
 	if err := json.Unmarshal(data, &tmpRes); err != nil {
 		log.WithError(err).Panic()
 	}
-	return Price{tmpRes.Symbol, stf64(tmpRes.Price)}
+	return broker.Price{
+		Symbol: tmpRes.Symbol,
+		Price:  stf64(tmpRes.Price),
+	}
 }
 
 func (w *PricesWebsocket) Close() {
@@ -85,7 +89,7 @@ func NewUserDataWebsocket(cfg *config.Config, key string) *UserDataWebsocket {
 	return &UserDataWebsocket{cfg, conn, key}
 }
 
-func (w *UserDataWebsocket) Read() []Balance {
+func (w *UserDataWebsocket) Read() []broker.Balance {
 	type tempBalance struct {
 		Asset  string `json:"a"`
 		Amount string `json:"f"`
@@ -112,9 +116,12 @@ func (w *UserDataWebsocket) Read() []Balance {
 		if err := json.Unmarshal(data, &tmpInfo); err != nil {
 			log.WithError(err).Panic()
 		}
-		var bal []Balance
+		var bal []broker.Balance
 		for _, b := range tmpInfo.Balances {
-			bal = append(bal, Balance{b.Asset, stf64(b.Amount)})
+			bal = append(bal, broker.Balance{
+				Asset:  b.Asset,
+				Amount: stf64(b.Amount),
+			})
 		}
 		return bal
 	}

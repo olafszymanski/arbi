@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/olafszymanski/arbi/config"
+	"github.com/olafszymanski/arbi/internal/broker"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -19,7 +20,7 @@ func NewAPI(cfg *config.Config) *API {
 	return &API{cfg, &http.Client{}}
 }
 
-func (a *API) ReadPrices(symbols map[string][]string) []Price {
+func (a *API) ReadPrices(symbols map[string][]string) []broker.Price {
 	type tempPrice struct {
 		Symbol string `json:"symbol"`
 		Price  string `json:"price"`
@@ -39,14 +40,17 @@ func (a *API) ReadPrices(symbols map[string][]string) []Price {
 	if err := json.Unmarshal(body, &tmpRes); err != nil {
 		log.WithError(err).Panic()
 	}
-	var res []Price
+	var res []broker.Price
 	for _, r := range tmpRes {
-		res = append(res, Price{r.Symbol, stf64(r.Price)})
+		res = append(res, broker.Price{
+			Symbol: r.Symbol,
+			Price:  stf64(r.Price),
+		})
 	}
 	return res
 }
 
-func (a *API) ReadBalances(symbols map[string][]string) []Balance {
+func (a *API) ReadBalances(symbols map[string][]string) []broker.Balance {
 	type tempBalance struct {
 		Asset  string `json:"asset"`
 		Amount string `json:"free"`
@@ -71,16 +75,22 @@ func (a *API) ReadBalances(symbols map[string][]string) []Balance {
 	if err := json.Unmarshal(body, &tmpRes); err != nil {
 		log.WithError(err).Panic()
 	}
-	var res []Balance
+	var res []broker.Balance
 	for crp, stbs := range symbols {
 		for _, r := range tmpRes.Balances {
 			amt := stf64(r.Amount)
 			if r.Asset == crp {
-				res = append(res, Balance{r.Asset, amt})
+				res = append(res, broker.Balance{
+					Asset:  r.Asset,
+					Amount: amt,
+				})
 			} else {
 				for _, s := range stbs {
 					if r.Asset == s {
-						res = append(res, Balance{r.Asset, amt})
+						res = append(res, broker.Balance{
+							Asset:  r.Asset,
+							Amount: amt,
+						})
 					}
 				}
 			}

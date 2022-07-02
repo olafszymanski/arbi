@@ -12,7 +12,17 @@ type Pair struct {
 
 type Pairs map[string]Pair
 
-type Account map[string]float64
+type Price struct {
+	Symbol string
+	Price  float64
+}
+
+type Balance struct {
+	Asset  string
+	Amount float64
+}
+
+type Account map[string]Balance
 
 func (p Pairs) HighestLowest(crypto string) (Pair, Pair) {
 	hCrp, hStb, lCrp, lStb := "", "", "", ""
