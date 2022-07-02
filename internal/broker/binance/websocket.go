@@ -1,9 +1,7 @@
 package binance
 
 import (
-	"encoding/json"
 	"errors"
-	"strings"
 	"syscall"
 	"time"
 
@@ -38,8 +36,8 @@ func (w *PricesWebsocket) Read() broker.Price {
 		Price  string `json:"c"`
 	}
 
-	_, data, err := w.conn.ReadMessage()
-	if err != nil {
+	var tmpPrice tempPrice
+	if err := w.conn.ReadJSON(&tmpPrice); err != nil {
 		if errors.Is(err, syscall.ECONNRESET) {
 			log.Warn("Websocket '", w.symbol, "' disconnected, retrying...")
 			w.Reconnect()
@@ -48,14 +46,9 @@ func (w *PricesWebsocket) Read() broker.Price {
 			log.WithError(err).Panic()
 		}
 	}
-
-	var tmpRes tempPrice
-	if err := json.Unmarshal(data, &tmpRes); err != nil {
-		log.WithError(err).Panic()
-	}
 	return broker.Price{
-		Symbol: tmpRes.Symbol,
-		Price:  stf64(tmpRes.Price),
+		Symbol: tmpPrice.Symbol,
+		Price:  stf64(tmpPrice.Price),
 	}
 }
 
@@ -100,8 +93,8 @@ func (w *UserDataWebsocket) Read() []broker.Balance {
 		Balances []tempBalance `json:"B"`
 	}
 
-	_, data, err := w.conn.ReadMessage()
-	if err != nil {
+	var tmpInfo tempUpdateInfo
+	if err := w.conn.ReadJSON(&tmpInfo); err != nil {
 		if errors.Is(err, syscall.ECONNRESET) {
 			log.Warn("User Data Websocket disconnected, retrying...")
 			w.Reconnect()
@@ -111,11 +104,7 @@ func (w *UserDataWebsocket) Read() []broker.Balance {
 		}
 	}
 
-	if strings.Contains(string(data), "outboundAccountPosition") {
-		var tmpInfo tempUpdateInfo
-		if err := json.Unmarshal(data, &tmpInfo); err != nil {
-			log.WithError(err).Panic()
-		}
+	if tmpInfo.Type == "outboundAccountPosition" {
 		var bal []broker.Balance
 		for _, b := range tmpInfo.Balances {
 			bal = append(bal, broker.Balance{
