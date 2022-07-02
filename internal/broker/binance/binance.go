@@ -66,6 +66,30 @@ func New(cfg *config.Config, store *database.Store, symbols map[string][]string)
 }
 
 func (b *Binance) Subscribe(ctx context.Context, done chan struct{}) {
+	go func() {
+		defer close(done)
+		defer func() {
+			if r := recover(); r != nil {
+				log.Error("Goroutine - 'User Data' - panicked")
+			}
+		}()
+
+		k := b.api.ReadListenKey()
+		ws := NewUserDataWebsocket(b.cfg, k)
+		log.Info("Connected to 'User Data' websocket")
+
+		for {
+			bals := ws.Read()
+			if bals != nil {
+				b.lock.Lock()
+				for _, bal := range bals {
+					b.account[bal.Asset] = bal.Amount
+				}
+				b.lock.Unlock()
+			}
+		}
+	}()
+
 	for sym, pr := range b.pairs {
 		sym := sym
 		pr := pr
@@ -78,12 +102,12 @@ func (b *Binance) Subscribe(ctx context.Context, done chan struct{}) {
 				}
 			}()
 
-			ws := NewWebsocket(b.cfg, sym)
+			ws := NewPricesWebsocket(b.cfg, sym)
 			defer ws.Close()
 			log.Info("Connected to '", sym, "' websocket")
 
 			for {
-				res := ws.ReadPrice()
+				res := ws.Read()
 				b.lock.Lock()
 				b.pairs[sym] = broker.Pair{
 					Crypto: pr.Crypto,

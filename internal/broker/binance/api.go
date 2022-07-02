@@ -89,6 +89,39 @@ func (a *API) ReadBalances(symbols map[string][]string) []Balance {
 	return res
 }
 
+func (a *API) ReadListenKey() string {
+	type keyResponse struct {
+		Key string `json:"listenKey"`
+	}
+
+	req, _ := http.NewRequest("POST", apiListenKeyUrl(), nil)
+	req.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
+	data, err := a.client.Do(req)
+	if err != nil {
+		log.WithError(err).Panic()
+	}
+	defer data.Body.Close()
+	body, err := ioutil.ReadAll(data.Body)
+	if err != nil {
+		log.WithError(err).Panic()
+	}
+
+	var res keyResponse
+	if err := json.Unmarshal(body, &res); err != nil {
+		log.WithError(err).Panic()
+	}
+	return res.Key
+}
+
+func (a *API) ExtendListenKey() {
+	req, _ := http.NewRequest("PUT", apiListenKeyUrl(), nil)
+	req.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
+	_, err := a.client.Do(req)
+	if err != nil {
+		log.WithError(err).Panic()
+	}
+}
+
 func (a *API) NewOrder(symbol, side string) {
 	fmt.Println(symbol)
 	req, _ := http.NewRequest("POST", newOrderUrl(a.cfg, symbol, side), nil)
