@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  build-deploy:
+  build-push:
     runs-on: ubuntu-latest
     env:
       GAR_REPOSITORY_LOCATION: europe-central2
