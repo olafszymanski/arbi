@@ -21,15 +21,16 @@ type Store struct {
 
 func NewStore(ctx context.Context, cfg *config.Config) *Store {
 	var (
-		cred option.ClientOption = nil
-		app  *firebase.App
-		err  error
+		app *firebase.App
+		err error
 	)
 	fbCfg := &firebase.Config{ProjectID: cfg.App.GcpID}
 	if cfg.App.Development > 0 {
-		cred = option.WithCredentialsFile("credentials.json")
+		cred := option.WithCredentialsFile("credentials.json")
+		app, err = firebase.NewApp(ctx, fbCfg, cred)
+	} else {
+		app, err = firebase.NewApp(ctx, fbCfg)
 	}
-	app, err = firebase.NewApp(ctx, fbCfg, cred)
 	if err != nil {
 		log.WithError(err).Panic()
 	}
