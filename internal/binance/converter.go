@@ -1,5 +1,7 @@
 package binance
 
+import "github.com/olafszymanski/arbi/pkg/utils"
+
 type Converter struct {
 	validator *Validator
 }
@@ -13,11 +15,11 @@ func (c *Converter) Convert(symbols []jsonSymbol, books []jsonOrderBook) ([]Symb
 	for _, s := range symbols {
 		for _, b := range books {
 			if c.validator.Validate(s, b) {
-				bid, err := Stf(b.Bid)
+				bid, err := utils.Stf(b.Bid)
 				if err != nil {
 					return nil, err
 				}
-				ask, err := Stf(b.Ask)
+				ask, err := utils.Stf(b.Ask)
 				if err != nil {
 					return nil, err
 				}
