@@ -10,10 +10,10 @@ func NewConverter(validator *Validator) *Converter {
 	return &Converter{validator}
 }
 
-func (c *Converter) Convert(symbols []jsonSymbol, books []jsonOrderBook) ([]Symbol, error) {
+func (c *Converter) Convert(symbols []jsonSymbol, orderBooks []jsonOrderBook) ([]Symbol, error) {
 	syms := make([]Symbol, 0)
 	for _, s := range symbols {
-		for _, b := range books {
+		for _, b := range orderBooks {
 			if c.validator.Validate(s, b) {
 				bid, err := utils.Stf(b.Bid)
 				if err != nil {
