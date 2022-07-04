@@ -32,8 +32,8 @@ type API struct {
 	client  *http.Client
 }
 
-func NewAPI(cfg *config.Config) *API {
-	return &API{cfg, NewURLFactory(), &http.Client{}}
+func NewAPI(cfg *config.Config, factory *URLFactory) *API {
+	return &API{cfg, factory, &http.Client{}}
 }
 
 func (a *API) GetExchangeInfo() ([]jsonSymbol, error) {
