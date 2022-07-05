@@ -14,3 +14,7 @@ func (u *URLFactory) ExchangeInfo() string {
 func (u *URLFactory) OrderBook() string {
 	return "https://api.binance.com/api/v3/ticker/bookTicker"
 }
+
+func (u *URLFactory) OrderBookTickers() string {
+	return "wss://stream.binance.com:9443/ws/!bookTicker"
+}
