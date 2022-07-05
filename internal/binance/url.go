@@ -1,5 +1,9 @@
 package binance
 
+import (
+	"fmt"
+)
+
 type URLFactory struct {
 }
 
@@ -17,4 +21,8 @@ func (u *URLFactory) OrderBook() string {
 
 func (u *URLFactory) OrderBookTickers() string {
 	return "wss://stream.binance.com:9443/ws/!bookTicker"
+}
+
+func (u *URLFactory) NewTestOrder(params, signature string) string {
+	return fmt.Sprintf("https://api.binance.com/api/v3/order/test?%s&signature=%s", params, signature)
 }
