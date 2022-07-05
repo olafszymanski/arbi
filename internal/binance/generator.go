@@ -7,11 +7,10 @@ type Triangle struct {
 }
 
 type Generator struct {
-	converter *Converter
 }
 
-func NewGenerator(converter *Converter) *Generator {
-	return &Generator{converter}
+func NewGenerator() *Generator {
+	return &Generator{}
 }
 
 // Generates triangular combinations along with unique crypto pairs - needed later for websocket data flow.
