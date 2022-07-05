@@ -25,13 +25,13 @@ jobs:
         id: meta
         uses: docker/metadata-action@69f6fc9d46f2f8bf0d5491e4aabe0bb8c6a4678a
         with:
-          images: ${{ ECR_REPOSITORY }}/arbi
+          images: ${{ env.ECR_REPOSITORY }}/arbi
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
           role-to-assume: arn:aws:iam::263752112305:user/ecr
-          aws-region: ${{ ECR_REPOSITORY_LOCATION }}
+          aws-region: ${{ env._REPOSITORY_LOCATION }}
 
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
