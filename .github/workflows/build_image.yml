@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ECR_REPOSITORY_LOCATION: ap-northeast-1
-      ECR_REPOSITORY: 263752112305.dkr.ecr.${{ env.ECR_REPOSITORY_LOCATION }}.amazonaws.com/arbi
+      ECR_REPOSITORY: 263752112305.dkr.ecr.ap-northeast-1.amazonaws.com/arbi
     permissions:
       contents: read
       id-token: write
