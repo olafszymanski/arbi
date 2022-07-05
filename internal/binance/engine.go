@@ -32,20 +32,8 @@ type Engine struct {
 func NewEngine(cfg *config.Config, bases []string) *Engine {
 	f := NewURLFactory()
 	a := NewAPI(cfg, f)
-	jsonSyms, jsonOB := apiInfo(a)
-
-	v := NewValidator()
-	c := NewConverter(v)
-	s, err := c.Convert(jsonSyms, jsonOB)
-	if err != nil {
-		log.WithError(err).Panic()
-	}
-
-	g := NewGenerator(c)
-	t, syms, err := g.Generate(s, bases)
-	if err != nil {
-		log.WithError(err).Panic()
-	}
+	s := convertJSON(getJSON(a))
+	t, syms := generate(s, bases)
 
 	w, err := NewWebsocket(f)
 	if err != nil {
@@ -63,7 +51,7 @@ func NewEngine(cfg *config.Config, bases []string) *Engine {
 	return &Engine{&sync.RWMutex{}, cfg, a, w, t, syms}
 }
 
-func apiInfo(api *API) ([]jsonSymbol, []jsonOrderBook) {
+func getJSON(api *API) ([]jsonSymbol, []jsonOrderBook) {
 	js, err := api.GetExchangeInfo()
 	if err != nil {
 		log.WithError(err).Panic()
@@ -73,6 +61,25 @@ func apiInfo(api *API) ([]jsonSymbol, []jsonOrderBook) {
 		log.WithError(err).Panic()
 	}
 	return js, job
+}
+
+func convertJSON(symbols []jsonSymbol, orderBooks []jsonOrderBook) []Symbol {
+	v := NewValidator()
+	c := NewConverter(v)
+	s, err := c.Convert(symbols, orderBooks)
+	if err != nil {
+		log.WithError(err).Panic()
+	}
+	return s
+}
+
+func generate(symbols []Symbol, bases []string) ([]Triangle, map[string]Symbol) {
+	g := NewGenerator()
+	t, s, err := g.Generate(symbols, bases)
+	if err != nil {
+		log.WithError(err).Panic()
+	}
+	return t, s
 }
 
 func (e *Engine) Run() {
@@ -103,12 +110,15 @@ func (e *Engine) Run() {
 		}
 	}()
 
-	go func() {
-		defer close(done)
-		for {
-			e.Profitability()
-		}
-	}()
+	for _, t := range e.triangles {
+		t := t
+		go func() {
+			defer close(done)
+			for {
+				e.makeTrade(t)
+			}
+		}()
+	}
 
 	for {
 		select {
@@ -124,47 +134,33 @@ func (e *Engine) Run() {
 	}
 }
 
-func (e *Engine) Profitability() {
-	for _, t := range e.triangles {
-		tt := time.Now()
-		// Buy - Buy - Sell
+func (e *Engine) makeTrade(triangle Triangle) {
+	tt := time.Now()
+	// Buy - Buy - Sell
+	e.Lock()
+	val := 1 / e.symbols[triangle.Intermediate+triangle.Base].Ask * 0.999 * 1 / e.symbols[triangle.Ticker+triangle.Intermediate].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Base].Bid * 0.999
+	e.Unlock()
+	if val > 1 {
+		e.api.NewTestOrder()
+		e.api.NewTestOrder()
+		e.api.NewTestOrder()
 		e.Lock()
-		val := 1 / e.symbols[t.Intermediate+t.Base].Ask * 0.999 * 1 / e.symbols[t.Ticker+t.Intermediate].Ask * 0.999 * e.symbols[t.Ticker+t.Base].Bid * 0.999
+		val1 := 1 / e.symbols[triangle.Intermediate+triangle.Base].Ask * 0.999 * 1 / e.symbols[triangle.Ticker+triangle.Intermediate].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Base].Bid * 0.999
 		e.Unlock()
-		if val > 1 {
-			e.api.NewTestOrder()
-			e.Lock()
-			val1 := 1 / e.symbols[t.Intermediate+t.Base].Ask * 0.999 * 1 / e.symbols[t.Ticker+t.Intermediate].Ask * 0.999 * e.symbols[t.Ticker+t.Base].Bid * 0.999
-			e.Unlock()
-			e.api.NewTestOrder()
-			e.Lock()
-			val2 := 1 / e.symbols[t.Intermediate+t.Base].Ask * 0.999 * 1 / e.symbols[t.Ticker+t.Intermediate].Ask * 0.999 * e.symbols[t.Ticker+t.Base].Bid * 0.999
-			e.Unlock()
-			e.api.NewTestOrder()
-			e.Lock()
-			val3 := 1 / e.symbols[t.Intermediate+t.Base].Ask * 0.999 * 1 / e.symbols[t.Ticker+t.Intermediate].Ask * 0.999 * e.symbols[t.Ticker+t.Base].Bid * 0.999
-			e.Unlock()
-			fmt.Println(t.Ticker+t.Base, " -> ", t.Ticker+t.Intermediate, " -> ", t.Intermediate+t.Base, " = ", val, " | ", time.Since(tt), val1, val2, val3)
-		}
+		fmt.Println(triangle.Ticker+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Intermediate+triangle.Base, " = ", val, " | ", time.Since(tt), val1)
+	}
 
-		// Buy - Sell - Sell
+	// Buy - Sell - Sell
+	e.Lock()
+	val = 1 / e.symbols[triangle.Ticker+triangle.Base].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Intermediate].Bid * 0.999 * e.symbols[triangle.Intermediate+triangle.Base].Bid * 0.999
+	e.Unlock()
+	if val > 1 {
+		e.api.NewTestOrder()
+		e.api.NewTestOrder()
+		e.api.NewTestOrder()
 		e.Lock()
-		val = 1 / e.symbols[t.Ticker+t.Base].Ask * 0.999 * e.symbols[t.Ticker+t.Intermediate].Bid * 0.999 * e.symbols[t.Intermediate+t.Base].Bid * 0.999
+		val1 := 1 / e.symbols[triangle.Ticker+triangle.Base].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Intermediate].Bid * 0.999 * e.symbols[triangle.Intermediate+triangle.Base].Bid * 0.999
 		e.Unlock()
-		if val > 1 {
-			e.api.NewTestOrder()
-			e.Lock()
-			val1 := 1 / e.symbols[t.Ticker+t.Base].Ask * 0.999 * e.symbols[t.Ticker+t.Intermediate].Bid * 0.999 * e.symbols[t.Intermediate+t.Base].Bid * 0.999
-			e.Unlock()
-			e.api.NewTestOrder()
-			e.Lock()
-			val2 := 1 / e.symbols[t.Ticker+t.Base].Ask * 0.999 * e.symbols[t.Ticker+t.Intermediate].Bid * 0.999 * e.symbols[t.Intermediate+t.Base].Bid * 0.999
-			e.Unlock()
-			e.api.NewTestOrder()
-			e.Lock()
-			val3 := 1 / e.symbols[t.Ticker+t.Base].Ask * 0.999 * e.symbols[t.Ticker+t.Intermediate].Bid * 0.999 * e.symbols[t.Intermediate+t.Base].Bid * 0.999
-			e.Unlock()
-			fmt.Println(t.Ticker+t.Base, " -> ", t.Ticker+t.Intermediate, " -> ", t.Intermediate+t.Base, " = ", val, " | ", time.Since(tt), val1, val2, val3)
-		}
+		fmt.Println(triangle.Ticker+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Intermediate+triangle.Base, " = ", val, " | ", time.Since(tt), val1)
 	}
 }
