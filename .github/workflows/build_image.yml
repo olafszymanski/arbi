@@ -9,7 +9,8 @@ jobs:
   build-push:
     runs-on: ubuntu-latest
     env:
-      GAR_REPOSITORY_LOCATION: europe-central2
+      ECR_REPOSITORY_LOCATION: ap-northeast-1
+      ECR_REPOSITORY: 263752112305.dkr.ecr.${{ env.ECR_REPOSITORY_LOCATION }}.amazonaws.com/arbi
     permissions:
       contents: read
       id-token: write
@@ -24,20 +25,18 @@ jobs:
         id: meta
         uses: docker/metadata-action@69f6fc9d46f2f8bf0d5491e4aabe0bb8c6a4678a
         with:
-          images: ${{ env.GAR_REPOSITORY_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/arbi/arbi
+          images: ${{ ECR_REPOSITORY }}/arbi
 
-      - name: Authenticate to Google Cloud
-        id: auth
-        uses: google-github-actions/auth@ceee102ec2387dd9e844e01b530ccd4ec87ce955
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
         with:
-          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
-          token_format: access_token
+          role-to-assume: arn:aws:iam::263752112305:user/ecr
+          aws-region: ${{ ECR_REPOSITORY_LOCATION }}
 
-      - name: Login to Google Cloud Platform
-        run: |-
-          echo '${{ steps.auth.outputs.access_token }}' | docker login -u oauth2accesstoken --password-stdin https://${{ env.GAR_REPOSITORY_LOCATION }}-docker.pkg.dev
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Build the Docker image and push it to the Google Artifact Registry
+      - name: Build the Docker image and push it to the Amazon ECR
         uses: docker/build-push-action@e551b19e49efd4e98792db7592c17c09b89db8d8
         with:
           context: .
