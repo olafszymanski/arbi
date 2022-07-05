@@ -2,10 +2,14 @@ package binance
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/olafszymanski/arbi/config"
+	"github.com/olafszymanski/arbi/pkg/utils"
+	"github.com/valyala/fasthttp"
 )
 
 type jsonSymbol struct {
@@ -30,10 +34,14 @@ type API struct {
 	cfg     *config.Config
 	factory *URLFactory
 	client  *http.Client
+	request *fasthttp.Request
 }
 
 func NewAPI(cfg *config.Config, factory *URLFactory) *API {
-	return &API{cfg, factory, &http.Client{}}
+	r := fasthttp.AcquireRequest()
+	r.Header.SetMethod("POST")
+	r.Header.Add("X-MBX-APIKEY", cfg.Binance.ApiKey)
+	return &API{cfg, factory, &http.Client{}, r}
 }
 
 func (a *API) GetExchangeInfo() ([]jsonSymbol, error) {
@@ -72,4 +80,16 @@ func (a *API) GetOrderBook() ([]jsonOrderBook, error) {
 		return nil, err
 	}
 	return o, nil
+}
+
+func (a *API) NewTestOrder() (bool, error) {
+	p := fmt.Sprintf("symbol=BTCUSDT&side=BUY&type=MARKET&quantity=1&recvWindow=10000&timestamp=%v", time.Now().UTC().UnixMilli())
+	s := utils.Signature(a.cfg.Binance.SecretKey, p)
+	u := a.factory.NewTestOrder(p, s)
+
+	a.request.SetRequestURI(u)
+	if err := fasthttp.Do(a.request, nil); err != nil {
+		return false, err
+	}
+	return true, nil
 }
