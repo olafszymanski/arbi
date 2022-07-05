@@ -1,7 +1,5 @@
 package binance
 
-import "strings"
-
 type Triangle struct {
 	Base         string
 	Intermediate string
@@ -27,15 +25,15 @@ func (v *Generator) Generate(symbols []Symbol, bases []string) ([]Triangle, map[
 					if s1.Base == s2.Quote {
 						for _, s3 := range symbols {
 							if s2.Base == s3.Base && s3.Quote == s1.Quote {
-								t = append(t, Triangle{strings.ToLower(s1.Quote), strings.ToLower(s1.Base), strings.ToLower(s2.Base)})
-								if _, ok := s[strings.ToLower(s1.Symbol)]; !ok {
-									s[strings.ToLower(s1.Symbol)] = s1
+								t = append(t, Triangle{s1.Quote, s1.Base, s2.Base})
+								if _, ok := s[s1.Symbol]; !ok {
+									s[s1.Symbol] = s1
 								}
-								if _, ok := s[strings.ToLower(s2.Symbol)]; !ok {
-									s[strings.ToLower(s2.Symbol)] = s2
+								if _, ok := s[s2.Symbol]; !ok {
+									s[s2.Symbol] = s2
 								}
-								if _, ok := s[strings.ToLower(s3.Symbol)]; !ok {
-									s[strings.ToLower(s3.Symbol)] = s3
+								if _, ok := s[s3.Symbol]; !ok {
+									s[s3.Symbol] = s3
 								}
 							}
 						}
