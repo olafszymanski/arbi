@@ -28,13 +28,13 @@ jobs:
           images: ${{ env.ECR_REPOSITORY }}/arbi
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@05b148adc31e091bafbaf404f745055d4d3bc9d2
         with:
           role-to-assume: arn:aws:iam::263752112305:user/ecr
-          aws-region: ${{ env._REPOSITORY_LOCATION }}
+          aws-region: ${{ env.ECR_REPOSITORY_LOCATION }}
 
       - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v1
+        uses: aws-actions/amazon-ecr-login@b874a33292cc9887d2e80bc63f6f1a11fccb4a7b
 
       - name: Build the Docker image and push it to the Amazon ECR
         uses: docker/build-push-action@e551b19e49efd4e98792db7592c17c09b89db8d8
