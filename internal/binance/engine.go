@@ -30,6 +30,7 @@ type Engine struct {
 }
 
 func NewEngine(cfg *config.Config, bases []string) *Engine {
+	fmt.Println("Engine starting...")
 	f := NewURLFactory()
 	a := NewAPI(cfg, f)
 	s := convertJSON(getJSON(a))
@@ -83,15 +84,18 @@ func generate(symbols []Symbol, bases []string) ([]Triangle, map[string]Symbol) 
 }
 
 func (e *Engine) Run() {
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt)
-	done := make(chan struct{})
-
-	u := NewUpdater()
+	fmt.Println("Starting running...")
+	c := make(chan struct{})
+	i := make(chan os.Signal, 1)
+	signal.Notify(i, os.Interrupt)
 
 	go func() {
-		defer close(done)
+		defer close(c)
 		defer e.websocket.Close()
+
+		fmt.Println("Main goroutine started...")
+
+		u := NewUpdater()
 		for {
 			j, err := e.websocket.Read()
 			if err != nil {
@@ -113,7 +117,7 @@ func (e *Engine) Run() {
 	for _, t := range e.triangles {
 		t := t
 		go func() {
-			defer close(done)
+			defer close(c)
 			for {
 				e.makeTrade(t)
 			}
@@ -122,11 +126,11 @@ func (e *Engine) Run() {
 
 	for {
 		select {
-		case <-done:
+		case <-c:
 			return
-		case <-interrupt:
+		case <-i:
 			select {
-			case <-done:
+			case <-c:
 			case <-time.After(time.Microsecond):
 			}
 			return
@@ -144,13 +148,12 @@ func (e *Engine) makeTrade(triangle Triangle) {
 		e.api.NewTestOrder()
 		e.api.NewTestOrder()
 		e.api.NewTestOrder()
-		e.Lock()
-		val1 := 1 / e.symbols[triangle.Intermediate+triangle.Base].Ask * 0.999 * 1 / e.symbols[triangle.Ticker+triangle.Intermediate].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Base].Bid * 0.999
-		e.Unlock()
-		fmt.Println(triangle.Ticker+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Intermediate+triangle.Base, " = ", val, " | ", time.Since(tt), val1)
+		// val1 := 1 / e.symbols[triangle.Intermediate+triangle.Base].Ask * 0.999 * 1 / e.symbols[triangle.Ticker+triangle.Intermediate].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Base].Bid * 0.999
+		fmt.Println(triangle.Ticker+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Intermediate+triangle.Base, " = ", val, " | ", time.Since(tt))
 	}
 
 	// Buy - Sell - Sell
+	tt = time.Now()
 	e.Lock()
 	val = 1 / e.symbols[triangle.Ticker+triangle.Base].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Intermediate].Bid * 0.999 * e.symbols[triangle.Intermediate+triangle.Base].Bid * 0.999
 	e.Unlock()
@@ -158,9 +161,7 @@ func (e *Engine) makeTrade(triangle Triangle) {
 		e.api.NewTestOrder()
 		e.api.NewTestOrder()
 		e.api.NewTestOrder()
-		e.Lock()
-		val1 := 1 / e.symbols[triangle.Ticker+triangle.Base].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Intermediate].Bid * 0.999 * e.symbols[triangle.Intermediate+triangle.Base].Bid * 0.999
-		e.Unlock()
-		fmt.Println(triangle.Ticker+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Intermediate+triangle.Base, " = ", val, " | ", time.Since(tt), val1)
+		// val1 := 1 / e.symbols[triangle.Ticker+triangle.Base].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Intermediate].Bid * 0.999 * e.symbols[triangle.Intermediate+triangle.Base].Bid * 0.999
+		fmt.Println(triangle.Ticker+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Intermediate+triangle.Base, " = ", val, " | ", time.Since(tt))
 	}
 }
