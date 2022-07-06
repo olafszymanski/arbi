@@ -40,13 +40,13 @@ func NewEngine(cfg *config.Config, bases []string) *Engine {
 		log.WithError(err).Panic()
 	}
 
-	// for i := range []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20} {
-	// 	tt := time.Now()
-	// 	a.NewTestOrder()
-	// 	a.NewTestOrder()
-	// 	a.NewTestOrder()
-	// 	fmt.Println(i, ": ", time.Since(tt))
-	// }
+	for i := range []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20} {
+		tt := time.Now()
+		a.NewTestOrder()
+		a.NewTestOrder()
+		a.NewTestOrder()
+		fmt.Println(i, ": ", time.Since(tt))
+	}
 
 	return &Engine{&sync.RWMutex{}, cfg, a, w, t, syms}
 }
