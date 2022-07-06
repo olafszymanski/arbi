@@ -12,17 +12,17 @@ func NewURLFactory() *URLFactory {
 }
 
 func (u *URLFactory) ExchangeInfo() string {
-	return "https://api.binance.com/api/v3/exchangeInfo"
+	return "https://api.binance.us/api/v3/exchangeInfo"
 }
 
 func (u *URLFactory) OrderBook() string {
-	return "https://api.binance.com/api/v3/ticker/bookTicker"
+	return "https://api.binance.us/api/v3/ticker/bookTicker"
 }
 
 func (u *URLFactory) OrderBookTickers() string {
-	return "wss://stream.binance.com:9443/ws/!bookTicker"
+	return "wss://stream.binance.us:9443/ws/!bookTicker"
 }
 
 func (u *URLFactory) NewTestOrder(params, signature string) string {
-	return fmt.Sprintf("https://api.binance.com/api/v3/order/test?%s&signature=%s", params, signature)
+	return fmt.Sprintf("https://api.binance.us/api/v3/order/test?%s&signature=%s", params, signature)
 }
