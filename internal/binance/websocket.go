@@ -35,7 +35,7 @@ func NewWebsocket(factory *URLFactory) (*Websocket, error) {
 func (w *Websocket) Read() (*jsonOrderBookTicker, error) {
 	var o jsonOrderBookTicker
 	if err := w.connection.ReadJSON(&o); err != nil {
-		if errors.Is(err, syscall.ECONNRESET) || websocket.IsUnexpectedCloseError(err) {
+		if errors.Is(err, syscall.ECONNRESET) || websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 			if err := w.reconnect(); err != nil {
 				return nil, err
 			}
