@@ -13,12 +13,13 @@ import (
 )
 
 type Symbol struct {
-	Symbol    string
-	Base      string
-	Quote     string
-	Precision uint8
-	Bid       float64
-	Ask       float64
+	Symbol         string
+	Base           string
+	BasePrecision  uint8
+	Quote          string
+	QuotePrecision uint8
+	Bid            float64
+	Ask            float64
 }
 
 type Wallet map[string]float64
@@ -132,12 +133,13 @@ func (e *Engine) Run() {
 			e.Lock()
 			if s, ok := e.symbols[o.Symbol]; ok {
 				e.symbols[o.Symbol] = Symbol{
-					Symbol:    s.Symbol,
-					Base:      s.Base,
-					Quote:     s.Quote,
-					Precision: s.Precision,
-					Bid:       b,
-					Ask:       a,
+					Symbol:         s.Symbol,
+					Base:           s.Base,
+					BasePrecision:  s.BasePrecision,
+					Quote:          s.Quote,
+					QuotePrecision: s.QuotePrecision,
+					Bid:            b,
+					Ask:            a,
 				}
 			}
 			e.Unlock()

@@ -11,11 +11,12 @@ import (
 )
 
 type jsonSymbol struct {
-	Symbol      string   `json:"symbol"`
-	Base        string   `json:"baseAsset"`
-	Quote       string   `json:"quoteAsset"`
-	Precision   uint8    `json:"quoteAssetPrecision"`
-	Permissions []string `json:"permissions"`
+	Symbol         string   `json:"symbol"`
+	Base           string   `json:"baseAsset"`
+	BasePrecision  uint8    `json:"baseAssetPrecision"`
+	Quote          string   `json:"quoteAsset"`
+	QuotePrecision uint8    `json:"quoteAssetPrecision"`
+	Permissions    []string `json:"permissions"`
 }
 
 type jsonExchangeInfo struct {

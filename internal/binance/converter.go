@@ -24,12 +24,13 @@ func (c *APIConverter) ToSymbols(symbols []jsonSymbol, orderBooks []jsonOrderBoo
 					return nil, err
 				}
 				syms = append(syms, Symbol{
-					Symbol:    s.Symbol,
-					Base:      s.Base,
-					Quote:     s.Quote,
-					Precision: s.Precision,
-					Bid:       bid,
-					Ask:       ask,
+					Symbol:         s.Symbol,
+					Base:           s.Base,
+					BasePrecision:  s.BasePrecision,
+					Quote:          s.Quote,
+					QuotePrecision: s.QuotePrecision,
+					Bid:            bid,
+					Ask:            ask,
 				})
 			}
 		}
