@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/olafszymanski/arbi/config"
+	"github.com/olafszymanski/arbi/pkg/utils"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -20,26 +21,75 @@ type Symbol struct {
 	Ask       float64
 }
 
-type Engine struct {
-	*sync.RWMutex
-	cfg       *config.Config
-	api       *API
-	websocket *Websocket
-	triangles []Triangle
-	symbols   map[string]Symbol
+type Wallet map[string]float64
+
+func (w Wallet) Update(assets []jsonAsset) error {
+	for _, a := range assets {
+		f, err := utils.Stf(a.Free)
+		if err != nil {
+			return err
+		}
+		w[a.Asset] = f
+	}
+	return nil
 }
 
-func NewEngine(cfg *config.Config, bases []string) *Engine {
-	fmt.Println("Engine starting...")
+type Engine struct {
+	*sync.RWMutex
+	cfg                *config.Config
+	api                *API
+	orderBookWebsocket *OrderBookWebsocket
+	walletWebsocket    *WalletWebsocket
+	triangles          []Triangle
+	symbols            map[string]Symbol
+	wallet             Wallet
+}
+
+func NewEngine(cfg *config.Config, bases []string) (*Engine, error) {
 	f := NewURLFactory()
 	a := NewAPI(cfg, f)
-	s := convertJSON(getJSON(a))
-	t, syms := generate(s, bases)
+	v := NewValidator()
+	c := NewAPIConverter(v)
+	g := NewGenerator()
 
-	w, err := NewWebsocket(f)
+	js, err := a.GetExchangeInfo()
 	if err != nil {
-		log.WithError(err).Panic()
+		return nil, err
 	}
+	job, err := a.GetOrderBook()
+	if err != nil {
+		return nil, err
+	}
+
+	s, err := c.ToSymbols(js, job)
+	if err != nil {
+		return nil, err
+	}
+
+	t, syms, err := g.Generate(s, bases)
+	if err != nil {
+		return nil, err
+	}
+
+	ja, err := a.GetUserAssets()
+	if err != nil {
+		return nil, err
+	}
+
+	w, err := c.ToWallet(ja)
+	if err != nil {
+		return nil, err
+	}
+
+	obw, err := NewOrderBookWebsocket(f)
+	if err != nil {
+		return nil, err
+	}
+
+	// ww, err := NewWalletWebsocket(f)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	// for i := range []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20} {
 	// 	tt := time.Now()
@@ -49,88 +99,62 @@ func NewEngine(cfg *config.Config, bases []string) *Engine {
 	// 	fmt.Println(i, ": ", time.Since(tt))
 	// }
 
-	return &Engine{&sync.RWMutex{}, cfg, a, w, t, syms}
-}
-
-func getJSON(api *API) ([]jsonSymbol, []jsonOrderBook) {
-	js, err := api.GetExchangeInfo()
-	if err != nil {
-		log.WithError(err).Panic()
-	}
-	job, err := api.GetOrderBook()
-	if err != nil {
-		log.WithError(err).Panic()
-	}
-	return js, job
-}
-
-func convertJSON(symbols []jsonSymbol, orderBooks []jsonOrderBook) []Symbol {
-	v := NewValidator()
-	c := NewConverter(v)
-	s, err := c.Convert(symbols, orderBooks)
-	if err != nil {
-		log.WithError(err).Panic()
-	}
-	return s
-}
-
-func generate(symbols []Symbol, bases []string) ([]Triangle, map[string]Symbol) {
-	g := NewGenerator()
-	t, s, err := g.Generate(symbols, bases)
-	if err != nil {
-		log.WithError(err).Panic()
-	}
-	return t, s
+	return &Engine{&sync.RWMutex{}, cfg, a, obw, nil, t, syms, w}, nil
 }
 
 func (e *Engine) Run() {
-	fmt.Println("Starting running...")
-	c := make(chan struct{})
+	d := make(chan struct{})
 	i := make(chan os.Signal, 1)
 	signal.Notify(i, os.Interrupt)
 
+	c := NewWebsocketConverter()
+
 	go func() {
-		defer close(c)
-		defer e.websocket.Close()
+		defer close(d)
+		defer e.orderBookWebsocket.Close()
 
-		fmt.Println("Main goroutine started...")
-
-		u := NewUpdater()
 		for {
-			j, err := e.websocket.Read()
+			j, err := e.orderBookWebsocket.Read()
 			if err != nil {
 				log.WithError(err).Panic()
 			}
 
-			s, err := u.Update(e.symbols, *j)
+			b, a, err := c.ToPrices(j)
 			if err != nil {
 				log.WithError(err).Panic()
 			}
-			if s != nil {
-				e.Lock()
-				e.symbols[j.Symbol] = *s
-				e.Unlock()
+			e.Lock()
+			if s, ok := e.symbols[j.Symbol]; ok {
+				e.symbols[j.Symbol] = Symbol{
+					Symbol:    s.Symbol,
+					Base:      s.Base,
+					Quote:     s.Quote,
+					Precision: s.Precision,
+					Bid:       b,
+					Ask:       a,
+				}
 			}
+			e.Unlock()
 		}
 	}()
 
-	for _, t := range e.triangles {
-		t := t
-		go func() {
-			defer close(c)
-			for {
-				e.makeTrade(t)
-			}
-		}()
-	}
+	// for _, t := range e.triangles {
+	// 	t := t
+	// 	go func() {
+	// 		defer close(d)
+	// 		for {
+	// 			e.makeTrade(t)
+	// 		}
+	// 	}()
+	// }
 
 	for {
 		select {
-		case <-c:
+		case <-d:
 			return
 		case <-i:
 			select {
-			case <-c:
+			case <-d:
 			case <-time.After(time.Microsecond):
 			}
 			return
@@ -145,11 +169,13 @@ func (e *Engine) makeTrade(triangle Triangle) {
 	val := 1 / e.symbols[triangle.Intermediate+triangle.Base].Ask * 0.999 * 1 / e.symbols[triangle.Ticker+triangle.Intermediate].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Base].Bid * 0.999
 	e.Unlock()
 	if val > 1 {
+		ttt := time.Now()
 		e.api.NewTestOrder()
 		e.api.NewTestOrder()
 		e.api.NewTestOrder()
-		// val1 := 1 / e.symbols[triangle.Intermediate+triangle.Base].Ask * 0.999 * 1 / e.symbols[triangle.Ticker+triangle.Intermediate].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Base].Bid * 0.999
-		fmt.Println(triangle.Ticker+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Intermediate+triangle.Base, " = ", val, " | ", time.Since(tt))
+		val1 := 1 / e.symbols[triangle.Intermediate+triangle.Base].Ask * 0.999 * 1 / e.symbols[triangle.Ticker+triangle.Intermediate].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Base].Bid * 0.999
+		fmt.Println("API Calls taken = ", time.Since(ttt))
+		fmt.Println(triangle.Intermediate+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Ticker+triangle.Base, " = ", val, " | ", time.Since(tt), " | ", val1)
 	}
 
 	// Buy - Sell - Sell
@@ -158,10 +184,12 @@ func (e *Engine) makeTrade(triangle Triangle) {
 	val = 1 / e.symbols[triangle.Ticker+triangle.Base].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Intermediate].Bid * 0.999 * e.symbols[triangle.Intermediate+triangle.Base].Bid * 0.999
 	e.Unlock()
 	if val > 1 {
+		ttt := time.Now()
 		e.api.NewTestOrder()
 		e.api.NewTestOrder()
 		e.api.NewTestOrder()
-		// val1 := 1 / e.symbols[triangle.Ticker+triangle.Base].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Intermediate].Bid * 0.999 * e.symbols[triangle.Intermediate+triangle.Base].Bid * 0.999
-		fmt.Println(triangle.Ticker+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Intermediate+triangle.Base, " = ", val, " | ", time.Since(tt))
+		val1 := 1 / e.symbols[triangle.Ticker+triangle.Base].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Intermediate].Bid * 0.999 * e.symbols[triangle.Intermediate+triangle.Base].Bid * 0.999
+		fmt.Println("API Calls taken = ", time.Since(ttt))
+		fmt.Println(triangle.Ticker+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Intermediate+triangle.Base, " = ", val, " | ", time.Since(tt), " | ", val1)
 	}
 }
