@@ -43,9 +43,10 @@ type Engine struct {
 	triangles          []Triangle
 	symbols            map[string]Symbol
 	wallet             Wallet
+	currentOrders      uint8
 }
 
-func NewEngine(cfg *config.Config, bases []string) (*Engine, error) {
+func NewEngine(cfg *config.Config, bases []string) *Engine {
 	f := NewURLFactory()
 	a := NewAPI(cfg, f)
 	v := NewValidator()
@@ -54,42 +55,47 @@ func NewEngine(cfg *config.Config, bases []string) (*Engine, error) {
 
 	js, err := a.GetExchangeInfo()
 	if err != nil {
-		return nil, err
+		log.WithError(err).Panic()
 	}
 	job, err := a.GetOrderBook()
 	if err != nil {
-		return nil, err
+		log.WithError(err).Panic()
 	}
 
 	s, err := c.ToSymbols(js, job)
 	if err != nil {
-		return nil, err
+		log.WithError(err).Panic()
 	}
 
 	t, syms, err := g.Generate(s, bases)
 	if err != nil {
-		return nil, err
+		log.WithError(err).Panic()
 	}
 
 	ja, err := a.GetUserAssets()
 	if err != nil {
-		return nil, err
+		log.WithError(err).Panic()
 	}
 
 	w, err := c.ToWallet(ja)
 	if err != nil {
-		return nil, err
+		log.WithError(err).Panic()
 	}
 
 	obw, err := NewOrderBookWebsocket(f)
 	if err != nil {
-		return nil, err
+		log.WithError(err).Panic()
 	}
 
-	// ww, err := NewWalletWebsocket(f)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	k, err := a.GetListenKey()
+	if err != nil {
+		log.WithError(err).Panic()
+	}
+
+	ww, err := NewWalletWebsocket(f, k)
+	if err != nil {
+		log.WithError(err).Panic()
+	}
 
 	for i := range []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20} {
 		tt := time.Now()
@@ -99,7 +105,7 @@ func NewEngine(cfg *config.Config, bases []string) (*Engine, error) {
 		fmt.Println(i, ": ", time.Since(tt))
 	}
 
-	return &Engine{&sync.RWMutex{}, cfg, a, obw, nil, t, syms, w}, nil
+	return &Engine{&sync.RWMutex{}, cfg, a, obw, ww, t, syms, w, 0}
 }
 
 func (e *Engine) Run() {
@@ -114,18 +120,18 @@ func (e *Engine) Run() {
 		defer e.orderBookWebsocket.Close()
 
 		for {
-			j, err := e.orderBookWebsocket.Read()
+			o, err := e.orderBookWebsocket.Read()
 			if err != nil {
 				log.WithError(err).Panic()
 			}
 
-			b, a, err := c.ToPrices(j)
+			b, a, err := c.ToPrices(o)
 			if err != nil {
 				log.WithError(err).Panic()
 			}
 			e.Lock()
-			if s, ok := e.symbols[j.Symbol]; ok {
-				e.symbols[j.Symbol] = Symbol{
+			if s, ok := e.symbols[o.Symbol]; ok {
+				e.symbols[o.Symbol] = Symbol{
 					Symbol:    s.Symbol,
 					Base:      s.Base,
 					Quote:     s.Quote,
@@ -138,12 +144,40 @@ func (e *Engine) Run() {
 		}
 	}()
 
+	go func() {
+		defer close(d)
+		defer e.walletWebsocket.Close()
+
+		for {
+			b, err := e.walletWebsocket.Read()
+			if err != nil {
+				log.WithError(err).Panic()
+			}
+
+			for _, bal := range b {
+				a, err := utils.Stf(bal.Amount)
+				if err != nil {
+					log.WithError(err).Panic()
+				}
+				e.Lock()
+				e.wallet[bal.Asset] = a
+				e.Unlock()
+			}
+		}
+	}()
+
 	for _, t := range e.triangles {
 		t := t
 		go func() {
 			defer close(d)
 			for {
-				e.makeTrade(t)
+				if e.currentOrders > 48 {
+					time.Sleep(time.Second * 11)
+					e.makeTrade(t)
+					e.Lock()
+					e.currentOrders++
+					e.Unlock()
+				}
 			}
 		}()
 	}

@@ -34,6 +34,10 @@ func (u *URLFactory) ListenKey(listenKey string) string {
 	return "https://api.binance.com/api/v3/userDataStream"
 }
 
+func (u *URLFactory) AccountUpdate(listenKey string) string {
+	return fmt.Sprintf("wss://stream.binance.com:9443/ws/%s", listenKey)
+}
+
 func (u *URLFactory) NewTestOrder(params, signature string) string {
 	return fmt.Sprintf("https://api.binance.com/api/v3/order/test?%s&signature=%s", params, signature)
 }
