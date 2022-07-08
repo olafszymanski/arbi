@@ -38,14 +38,17 @@ type jsonListenKey struct {
 }
 
 type API struct {
-	cfg     *config.Config
-	factory *URLFactory
-	request *fasthttp.Request
+	cfg             *config.Config
+	factory         *URLFactory
+	request         *fasthttp.Request
+	newOrderRequest *fasthttp.Request
 }
 
 func NewAPI(cfg *config.Config, factory *URLFactory) *API {
 	r := fasthttp.AcquireRequest()
-	return &API{cfg, factory, r}
+	r.Header.SetMethod("POST")
+	r.Header.Add("X-MBX-APIKEY", cfg.Binance.ApiKey)
+	return &API{cfg, factory, fasthttp.AcquireRequest(), r}
 }
 
 func (a *API) GetExchangeInfo() ([]jsonSymbol, error) {
@@ -135,9 +138,7 @@ func (a *API) NewTestOrder() (bool, error) {
 	s := utils.Signature(a.cfg.Binance.SecretKey, p)
 	u := a.factory.NewTestOrder(p, s)
 
-	a.request.Header.SetMethod("POST")
-	a.request.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
-	a.request.SetRequestURI(u)
+	a.newOrderRequest.SetRequestURI(u)
 	if err := fasthttp.Do(a.request, nil); err != nil {
 		return false, err
 	}
