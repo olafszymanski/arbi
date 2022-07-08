@@ -48,8 +48,6 @@ type API struct {
 
 func NewAPI(cfg *config.Config, factory *URLFactory) *API {
 	r := fasthttp.AcquireRequest()
-	r.Header.SetMethod("POST")
-	r.Header.Add("X-MBX-APIKEY", cfg.Binance.ApiKey)
 	return &API{cfg, factory, &http.Client{}, r}
 }
 
@@ -110,7 +108,7 @@ func (a *API) GetUserAssets() ([]jsonAsset, error) {
 }
 
 func (a *API) GetListenKey() (string, error) {
-	u := a.factory.ListenKey()
+	u := a.factory.ListenKey("")
 	a.request.SetRequestURI(u)
 	r := fasthttp.Response{}
 	if err := fasthttp.Do(a.request, &r); err != nil {
@@ -124,11 +122,24 @@ func (a *API) GetListenKey() (string, error) {
 	return l.Key, nil
 }
 
+func (a *API) KeepAliveListenKey(listenKey string) error {
+	u := a.factory.ListenKey(listenKey)
+
+	a.request.Header.SetMethod("PUT")
+	a.request.SetRequestURI(u)
+	if err := fasthttp.Do(a.request, nil); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (a *API) NewTestOrder() (bool, error) {
 	p := fmt.Sprintf("symbol=BTCUSDT&side=BUY&type=MARKET&quantity=1&recvWindow=10000&timestamp=%v", time.Now().UTC().UnixMilli())
 	s := utils.Signature(a.cfg.Binance.SecretKey, p)
 	u := a.factory.NewTestOrder(p, s)
 
+	a.request.Header.SetMethod("POST")
+	a.request.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
 	a.request.SetRequestURI(u)
 	if err := fasthttp.Do(a.request, nil); err != nil {
 		return false, err
