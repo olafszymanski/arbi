@@ -138,15 +138,15 @@ func (e *Engine) Run() {
 		}
 	}()
 
-	// for _, t := range e.triangles {
-	// 	t := t
-	// 	go func() {
-	// 		defer close(d)
-	// 		for {
-	// 			e.makeTrade(t)
-	// 		}
-	// 	}()
-	// }
+	for _, t := range e.triangles {
+		t := t
+		go func() {
+			defer close(d)
+			for {
+				e.makeTrade(t)
+			}
+		}()
+	}
 
 	for {
 		select {
