@@ -3,8 +3,6 @@ package binance
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"time"
 
 	"github.com/olafszymanski/arbi/config"
@@ -42,29 +40,26 @@ type jsonListenKey struct {
 type API struct {
 	cfg     *config.Config
 	factory *URLFactory
-	client  *http.Client
 	request *fasthttp.Request
 }
 
 func NewAPI(cfg *config.Config, factory *URLFactory) *API {
 	r := fasthttp.AcquireRequest()
-	return &API{cfg, factory, &http.Client{}, r}
+	return &API{cfg, factory, r}
 }
 
 func (a *API) GetExchangeInfo() ([]jsonSymbol, error) {
 	u := a.factory.ExchangeInfo()
-	r, err := http.Get(u)
-	if err != nil {
-		return nil, err
-	}
-	defer r.Body.Close()
-	d, err := io.ReadAll(r.Body)
-	if err != nil {
+
+	a.request.Header.SetMethod("GET")
+	a.request.SetRequestURI(u)
+	r := fasthttp.Response{}
+	if err := fasthttp.Do(a.request, &r); err != nil {
 		return nil, err
 	}
 
 	var e jsonExchangeInfo
-	if err := json.Unmarshal(d, &e); err != nil {
+	if err := json.Unmarshal(r.Body(), &e); err != nil {
 		return nil, err
 	}
 	return e.Symbols, nil
@@ -72,18 +67,16 @@ func (a *API) GetExchangeInfo() ([]jsonSymbol, error) {
 
 func (a *API) GetOrderBook() ([]jsonOrderBook, error) {
 	u := a.factory.OrderBook()
-	r, err := http.Get(u)
-	if err != nil {
-		return nil, err
-	}
-	defer r.Body.Close()
-	d, err := io.ReadAll(r.Body)
-	if err != nil {
+
+	a.request.Header.SetMethod("GET")
+	a.request.SetRequestURI(u)
+	r := fasthttp.Response{}
+	if err := fasthttp.Do(a.request, &r); err != nil {
 		return nil, err
 	}
 
 	var o []jsonOrderBook
-	if err := json.Unmarshal(d, &o); err != nil {
+	if err := json.Unmarshal(r.Body(), &o); err != nil {
 		return nil, err
 	}
 	return o, nil
@@ -94,6 +87,8 @@ func (a *API) GetUserAssets() ([]jsonAsset, error) {
 	s := utils.Signature(a.cfg.Binance.SecretKey, p)
 	u := a.factory.UserAssets(p, s)
 
+	a.request.Header.SetMethod("POST")
+	a.request.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
 	a.request.SetRequestURI(u)
 	r := fasthttp.Response{}
 	if err := fasthttp.Do(a.request, &r); err != nil {
@@ -109,6 +104,8 @@ func (a *API) GetUserAssets() ([]jsonAsset, error) {
 
 func (a *API) GetListenKey() (string, error) {
 	u := a.factory.ListenKey("")
+
+	a.request.Header.SetMethod("GET")
 	a.request.SetRequestURI(u)
 	r := fasthttp.Response{}
 	if err := fasthttp.Do(a.request, &r); err != nil {
