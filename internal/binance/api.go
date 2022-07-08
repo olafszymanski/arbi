@@ -30,6 +30,11 @@ type jsonOrderBook struct {
 	Ask    string `json:"askPrice"`
 }
 
+type jsonAsset struct {
+	Asset string `json:"asset"`
+	Free  string `json:"free"`
+}
+
 type API struct {
 	cfg     *config.Config
 	factory *URLFactory
@@ -80,6 +85,24 @@ func (a *API) GetOrderBook() ([]jsonOrderBook, error) {
 		return nil, err
 	}
 	return o, nil
+}
+
+func (a *API) GetUserAssets() ([]jsonAsset, error) {
+	p := fmt.Sprintf("timestamp=%v", time.Now().UTC().UnixMilli())
+	s := utils.Signature(a.cfg.Binance.SecretKey, p)
+	u := a.factory.UserAssets(p, s)
+
+	a.request.SetRequestURI(u)
+	r := fasthttp.Response{}
+	if err := fasthttp.Do(a.request, &r); err != nil {
+		return nil, err
+	}
+
+	var as []jsonAsset
+	if err := json.Unmarshal(r.Body(), &as); err != nil {
+		return nil, err
+	}
+	return as, nil
 }
 
 func (a *API) NewTestOrder() (bool, error) {
