@@ -35,6 +35,10 @@ type jsonAsset struct {
 	Free  string `json:"free"`
 }
 
+type jsonListenKey struct {
+	Key string `json:"listenKey"`
+}
+
 type API struct {
 	cfg     *config.Config
 	factory *URLFactory
@@ -103,6 +107,21 @@ func (a *API) GetUserAssets() ([]jsonAsset, error) {
 		return nil, err
 	}
 	return as, nil
+}
+
+func (a *API) GetListenKey() (string, error) {
+	u := a.factory.ListenKey()
+	a.request.SetRequestURI(u)
+	r := fasthttp.Response{}
+	if err := fasthttp.Do(a.request, &r); err != nil {
+		return "", err
+	}
+
+	var l jsonListenKey
+	if err := json.Unmarshal(r.Body(), &l); err != nil {
+		return "", err
+	}
+	return l.Key, nil
 }
 
 func (a *API) NewTestOrder() (bool, error) {
