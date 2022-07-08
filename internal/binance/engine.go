@@ -175,10 +175,11 @@ func (e *Engine) Run() {
 			for {
 				if e.currentOrders > 48 {
 					time.Sleep(time.Second * 11)
-					e.makeTrade(t)
+				} else {
 					e.Lock()
 					e.currentOrders++
 					e.Unlock()
+					e.makeTrade(t)
 				}
 			}
 		}()
@@ -200,28 +201,39 @@ func (e *Engine) Run() {
 
 func (e *Engine) makeTrade(triangle Triangle) {
 	// Buy - Buy - Sell
+	first := triangle.Intermediate + triangle.Base
+	second := triangle.Ticker + triangle.Intermediate
+	third := triangle.Ticker + triangle.Base
 	e.Lock()
-	val := 1 / e.symbols[triangle.Intermediate+triangle.Base].Ask * 0.999 * 1 / e.symbols[triangle.Ticker+triangle.Intermediate].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Base].Bid * 0.999
+	val := 1 / e.symbols[first].Ask * 0.999 * 1 / e.symbols[second].Ask * 0.999 * e.symbols[third].Bid * 0.999
 	e.Unlock()
-	if val > 1 {
+	if val > 1.001 {
 		tt := time.Now()
+		// e.api.NewOrder(first, "BUY", e.wallet[e.symbols[first].Base], e.symbols[first].BasePrecision)
+		// e.api.NewOrder(second, "BUY", e.wallet[e.symbols[second].Base], e.symbols[second].BasePrecision)
+		// e.api.NewOrder(first, "SELL", e.wallet[e.symbols[third].Quote], e.symbols[second].QuotePrecision)
+
 		e.api.NewTestOrder()
 		e.api.NewTestOrder()
 		e.api.NewTestOrder()
-		val1 := 1 / e.symbols[triangle.Intermediate+triangle.Base].Ask * 0.999 * 1 / e.symbols[triangle.Ticker+triangle.Intermediate].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Base].Bid * 0.999
-		fmt.Println(triangle.Intermediate+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Ticker+triangle.Base, " = ", val, " | API:", time.Since(tt), " | ", val1)
+		val1 := 1 / e.symbols[first].Ask * 0.999 * 1 / e.symbols[second].Ask * 0.999 * e.symbols[third].Bid * 0.999
+		fmt.Println("BUY", first, " ->  BUY", second, " ->  SELL", third, " = ", val, " | API:", time.Since(tt), " | ", val1)
 	}
 
 	// Buy - Sell - Sell
-	e.Lock()
-	val = 1 / e.symbols[triangle.Ticker+triangle.Base].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Intermediate].Bid * 0.999 * e.symbols[triangle.Intermediate+triangle.Base].Bid * 0.999
-	e.Unlock()
-	if val > 1 {
-		tt := time.Now()
-		e.api.NewTestOrder()
-		e.api.NewTestOrder()
-		e.api.NewTestOrder()
-		val1 := 1 / e.symbols[triangle.Ticker+triangle.Base].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Intermediate].Bid * 0.999 * e.symbols[triangle.Intermediate+triangle.Base].Bid * 0.999
-		fmt.Println(triangle.Ticker+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Intermediate+triangle.Base, " = ", val, " | API:", time.Since(tt), " | ", val1)
-	}
+	// e.Lock()
+	// val = 1 / e.symbols[third].Ask * 0.999 * e.symbols[second].Bid * 0.999 * e.symbols[first].Bid * 0.999
+	// e.Unlock()
+	// if val > 1 {
+	// 	tt := time.Now()
+	// 	e.api.NewOrder(first, "BUY", e.wallet[e.symbols[third].Base], e.symbols[first].BasePrecision)
+	// 	e.api.NewOrder(second, "SELL", e.wallet[e.symbols[second].Quote], e.symbols[second].QuotePrecision)
+	// 	e.api.NewOrder(first, "SELL", e.wallet[e.symbols[first].Quote], e.symbols[second].QuotePrecision)
+
+	// 	e.api.NewTestOrder()
+	// 	e.api.NewTestOrder()
+	// 	e.api.NewTestOrder()
+	// 	val1 := 1 / e.symbols[triangle.Ticker+triangle.Base].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Intermediate].Bid * 0.999 * e.symbols[triangle.Intermediate+triangle.Base].Bid * 0.999
+	// 	fmt.Println(triangle.Ticker+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Intermediate+triangle.Base, " = ", val, " | API:", time.Since(tt), " | ", val1)
+	// }
 }

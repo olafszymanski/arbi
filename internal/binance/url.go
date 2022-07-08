@@ -38,6 +38,10 @@ func (u *URLFactory) AccountUpdate(listenKey string) string {
 	return fmt.Sprintf("wss://stream.binance.com:9443/ws/%s", listenKey)
 }
 
+func (u *URLFactory) NewOrder(params, signature string) string {
+	return fmt.Sprintf("https://api.binance.com/api/v3/order?%s&signature=%s", params, signature)
+}
+
 func (u *URLFactory) NewTestOrder(params, signature string) string {
 	return fmt.Sprintf("https://api.binance.com/api/v3/order/test?%s&signature=%s", params, signature)
 }

@@ -134,6 +134,19 @@ func (a *API) KeepAliveListenKey(listenKey string) error {
 	return nil
 }
 
+func (a *API) NewOrder(symbol, side string, quantity float64, precision int) (bool, error) {
+	q := utils.Round(quantity, precision)
+	p := fmt.Sprintf("symbol=%s&side=%s&type=MARKET&quantity=%v&recvWindow=10000&timestamp=%v", symbol, side, q, time.Now().UTC().UnixMilli())
+	s := utils.Signature(a.cfg.Binance.SecretKey, p)
+	u := a.factory.NewOrder(p, s)
+
+	a.newOrderRequest.SetRequestURI(u)
+	if err := fasthttp.Do(a.request, nil); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (a *API) NewTestOrder() (bool, error) {
 	p := fmt.Sprintf("symbol=BTCUSDT&side=BUY&type=MARKET&quantity=1&recvWindow=10000&timestamp=%v", time.Now().UTC().UnixMilli())
 	s := utils.Signature(a.cfg.Binance.SecretKey, p)
