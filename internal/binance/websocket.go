@@ -45,14 +45,13 @@ func NewOrderBookWebsocket(factory *URLFactory) (*OrderBookWebsocket, error) {
 func (w *OrderBookWebsocket) Read() (*jsonOrderBookTicker, error) {
 	var o jsonOrderBookTicker
 	if err := w.connection.ReadJSON(&o); err != nil {
-		if errors.Is(err, syscall.ECONNRESET) || websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+		if errors.Is(err, syscall.ECONNRESET) || err.Error() == "websocket: close 1006 (abnormal closure): unexpected EOF" {
 			log.Warn("Order book websocket disconnected, trying to reconnect...")
 			if err := w.reconnect(); err != nil {
 				return nil, err
 			}
 			return w.Read()
 		} else {
-			log.Warn("Order book websocket disconnected, trying to reconnect...")
 			return nil, err
 		}
 	}
