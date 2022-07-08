@@ -27,7 +27,10 @@ func (u *URLFactory) UserAssets(params, signature string) string {
 	return fmt.Sprintf("https://api.binance.com/sapi/v3/asset/getUserAsset?%s&signature=%s", params, signature)
 }
 
-func (u *URLFactory) ListenKey() string {
+func (u *URLFactory) ListenKey(listenKey string) string {
+	if listenKey != "" {
+		return fmt.Sprintf("https://api.binance.com/api/v3/userDataStream?listenKey=%s", listenKey)
+	}
 	return "https://api.binance.com/api/v3/userDataStream"
 }
 

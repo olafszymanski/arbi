@@ -141,9 +141,4 @@ func (a *API) NewOrder(symbol, side string) {
 		log.WithError(err).Panic()
 	}
 	defer data.Body.Close()
-	body, err := ioutil.ReadAll(data.Body)
-	if err != nil {
-		log.WithError(err).Panic()
-	}
-	fmt.Println(string(body))
 }
