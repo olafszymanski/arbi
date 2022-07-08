@@ -94,6 +94,8 @@ func (a *API) GetUserAssets() ([]jsonAsset, error) {
 	s := utils.Signature(a.cfg.Binance.SecretKey, p)
 	u := a.factory.UserAssets(p, s)
 
+	a.request.Header.SetMethod("POST")
+	a.request.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
 	a.request.SetRequestURI(u)
 	r := fasthttp.Response{}
 	if err := fasthttp.Do(a.request, &r); err != nil {
