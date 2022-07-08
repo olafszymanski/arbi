@@ -108,7 +108,7 @@ func (a *API) GetUserAssets() ([]jsonAsset, error) {
 func (a *API) GetListenKey() (string, error) {
 	u := a.factory.ListenKey("")
 
-	a.request.Header.SetMethod("GET")
+	a.request.Header.SetMethod("POST")
 	a.request.SetRequestURI(u)
 	r := fasthttp.Response{}
 	if err := fasthttp.Do(a.request, &r); err != nil {
