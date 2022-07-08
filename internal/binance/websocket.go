@@ -52,6 +52,7 @@ func (w *OrderBookWebsocket) Read() (*jsonOrderBookTicker, error) {
 			}
 			return w.Read()
 		} else {
+			log.Warn("Order book websocket disconnected, trying to reconnect...")
 			return nil, err
 		}
 	}
