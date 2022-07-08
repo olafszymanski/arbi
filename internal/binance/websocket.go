@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	log "github.com/sirupsen/logrus"
 )
 
 type jsonOrderBookTicker struct {
@@ -45,6 +46,7 @@ func (w *OrderBookWebsocket) Read() (*jsonOrderBookTicker, error) {
 	var o jsonOrderBookTicker
 	if err := w.connection.ReadJSON(&o); err != nil {
 		if errors.Is(err, syscall.ECONNRESET) || websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+			log.Warn("Order book websocket disconnected, trying to reconnect...")
 			if err := w.reconnect(); err != nil {
 				return nil, err
 			}

@@ -163,31 +163,29 @@ func (e *Engine) Run() {
 }
 
 func (e *Engine) makeTrade(triangle Triangle) {
-	tt := time.Now()
 	// Buy - Buy - Sell
 	e.Lock()
 	val := 1 / e.symbols[triangle.Intermediate+triangle.Base].Ask * 0.999 * 1 / e.symbols[triangle.Ticker+triangle.Intermediate].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Base].Bid * 0.999
 	e.Unlock()
 	if val > 1 {
-		ttt := time.Now()
+		tt := time.Now()
 		e.api.NewTestOrder()
 		e.api.NewTestOrder()
 		e.api.NewTestOrder()
 		val1 := 1 / e.symbols[triangle.Intermediate+triangle.Base].Ask * 0.999 * 1 / e.symbols[triangle.Ticker+triangle.Intermediate].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Base].Bid * 0.999
-		fmt.Println(triangle.Intermediate+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Ticker+triangle.Base, " = ", val, " | Process:", time.Since(tt), " | API:", time.Since(ttt), " | ", val1)
+		fmt.Println(triangle.Intermediate+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Ticker+triangle.Base, " = ", val, " | API:", time.Since(tt), " | ", val1)
 	}
 
 	// Buy - Sell - Sell
-	tt = time.Now()
 	e.Lock()
 	val = 1 / e.symbols[triangle.Ticker+triangle.Base].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Intermediate].Bid * 0.999 * e.symbols[triangle.Intermediate+triangle.Base].Bid * 0.999
 	e.Unlock()
 	if val > 1 {
-		ttt := time.Now()
+		tt := time.Now()
 		e.api.NewTestOrder()
 		e.api.NewTestOrder()
 		e.api.NewTestOrder()
 		val1 := 1 / e.symbols[triangle.Ticker+triangle.Base].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Intermediate].Bid * 0.999 * e.symbols[triangle.Intermediate+triangle.Base].Bid * 0.999
-		fmt.Println(triangle.Ticker+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Intermediate+triangle.Base, " = ", val, " | Process:", time.Since(tt), " | API:", time.Since(ttt), " | ", val1)
+		fmt.Println(triangle.Ticker+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Intermediate+triangle.Base, " = ", val, " | API:", time.Since(tt), " | ", val1)
 	}
 }
