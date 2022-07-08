@@ -15,9 +15,9 @@ import (
 type Symbol struct {
 	Symbol         string
 	Base           string
-	BasePrecision  uint8
+	BasePrecision  int
 	Quote          string
-	QuotePrecision uint8
+	QuotePrecision int
 	Bid            float64
 	Ask            float64
 }

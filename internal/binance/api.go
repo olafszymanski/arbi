@@ -13,9 +13,9 @@ import (
 type jsonSymbol struct {
 	Symbol         string   `json:"symbol"`
 	Base           string   `json:"baseAsset"`
-	BasePrecision  uint8    `json:"baseAssetPrecision"`
+	BasePrecision  int      `json:"baseAssetPrecision"`
 	Quote          string   `json:"quoteAsset"`
-	QuotePrecision uint8    `json:"quoteAssetPrecision"`
+	QuotePrecision int      `json:"quoteAssetPrecision"`
 	Permissions    []string `json:"permissions"`
 }
 
