@@ -91,13 +91,13 @@ func NewEngine(cfg *config.Config, bases []string) (*Engine, error) {
 	// 	return nil, err
 	// }
 
-	// for i := range []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20} {
-	// 	tt := time.Now()
-	// 	a.NewTestOrder()
-	// 	a.NewTestOrder()
-	// 	a.NewTestOrder()
-	// 	fmt.Println(i, ": ", time.Since(tt))
-	// }
+	for i := range []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20} {
+		tt := time.Now()
+		a.NewTestOrder()
+		a.NewTestOrder()
+		a.NewTestOrder()
+		fmt.Println(i, ": ", time.Since(tt))
+	}
 
 	return &Engine{&sync.RWMutex{}, cfg, a, obw, nil, t, syms, w}, nil
 }
@@ -174,8 +174,7 @@ func (e *Engine) makeTrade(triangle Triangle) {
 		e.api.NewTestOrder()
 		e.api.NewTestOrder()
 		val1 := 1 / e.symbols[triangle.Intermediate+triangle.Base].Ask * 0.999 * 1 / e.symbols[triangle.Ticker+triangle.Intermediate].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Base].Bid * 0.999
-		fmt.Println("API Calls taken = ", time.Since(ttt))
-		fmt.Println(triangle.Intermediate+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Ticker+triangle.Base, " = ", val, " | ", time.Since(tt), " | ", val1)
+		fmt.Println(triangle.Intermediate+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Ticker+triangle.Base, " = ", val, " | Process:", time.Since(tt), " | API:", time.Since(ttt), " | ", val1)
 	}
 
 	// Buy - Sell - Sell
@@ -189,7 +188,6 @@ func (e *Engine) makeTrade(triangle Triangle) {
 		e.api.NewTestOrder()
 		e.api.NewTestOrder()
 		val1 := 1 / e.symbols[triangle.Ticker+triangle.Base].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Intermediate].Bid * 0.999 * e.symbols[triangle.Intermediate+triangle.Base].Bid * 0.999
-		fmt.Println("API Calls taken = ", time.Since(ttt))
-		fmt.Println(triangle.Ticker+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Intermediate+triangle.Base, " = ", val, " | ", time.Since(tt), " | ", val1)
+		fmt.Println(triangle.Ticker+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Intermediate+triangle.Base, " = ", val, " | Process:", time.Since(tt), " | API:", time.Since(ttt), " | ", val1)
 	}
 }
