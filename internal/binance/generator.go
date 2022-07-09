@@ -6,6 +6,18 @@ type Triangle struct {
 	Ticker       string
 }
 
+func (t Triangle) FirstPair() string {
+	return t.Intermediate + t.Base
+}
+
+func (t Triangle) SecondPair() string {
+	return t.Ticker + t.Intermediate
+}
+
+func (t Triangle) ThirdPair() string {
+	return t.Ticker + t.Base
+}
+
 type Generator struct {
 }
 

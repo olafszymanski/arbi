@@ -44,7 +44,6 @@ type Engine struct {
 	triangles          []Triangle
 	symbols            map[string]Symbol
 	wallet             Wallet
-	currentOrders      uint8
 }
 
 func NewEngine(cfg *config.Config, bases []string) *Engine {
@@ -62,6 +61,7 @@ func NewEngine(cfg *config.Config, bases []string) *Engine {
 	if err != nil {
 		log.WithError(err).Panic()
 	}
+	// TODO: Fetch trading fees
 
 	s, err := c.ToSymbols(js, job)
 	if err != nil {
@@ -98,15 +98,15 @@ func NewEngine(cfg *config.Config, bases []string) *Engine {
 		log.WithError(err).Panic()
 	}
 
-	for i := range []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20} {
-		tt := time.Now()
-		a.NewTestOrder()
-		a.NewTestOrder()
-		a.NewTestOrder()
-		fmt.Println(i, ": ", time.Since(tt))
-	}
+	// for i := range []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20} {
+	// 	tt := time.Now()
+	// 	a.NewTestOrder()
+	// 	a.NewTestOrder()
+	// 	a.NewTestOrder()
+	// 	fmt.Println(i, ": ", time.Since(tt))
+	// }
 
-	return &Engine{&sync.RWMutex{}, cfg, a, obw, ww, t, syms, w, 0}
+	return &Engine{&sync.RWMutex{}, cfg, a, obw, ww, t, syms, w}
 }
 
 func (e *Engine) Run() {
@@ -173,14 +173,14 @@ func (e *Engine) Run() {
 		go func() {
 			defer close(d)
 			for {
-				if e.currentOrders > 48 {
-					time.Sleep(time.Second * 11)
-				} else {
-					e.Lock()
-					e.currentOrders++
-					e.Unlock()
-					e.makeTrade(t)
+				e.Lock()
+				if p := e.profitability(t); p > 0 {
+					e.makeTrade(t, p)
 				}
+				if p := e.reverseProfitability(t); p > 0 {
+					e.makeReverseTrade(t, p)
+				}
+				e.Unlock()
 			}
 		}()
 	}
@@ -199,41 +199,48 @@ func (e *Engine) Run() {
 	}
 }
 
-func (e *Engine) makeTrade(triangle Triangle) {
+func (e *Engine) profitability(triangle Triangle) float64 {
+	return 1 / e.symbols[triangle.FirstPair()].Ask * 0.999 * 1 / e.symbols[triangle.SecondPair()].Ask * 0.999 * e.symbols[triangle.ThirdPair()].Bid * 0.999
+}
+
+func (e *Engine) reverseProfitability(triangle Triangle) float64 {
+	return 1 / e.symbols[triangle.ThirdPair()].Ask * 0.999 * e.symbols[triangle.SecondPair()].Bid * 0.999 * e.symbols[triangle.FirstPair()].Bid * 0.999
+}
+
+func (e *Engine) makeTrade(triangle Triangle, profitability float64) {
 	// Buy - Buy - Sell
 	first := triangle.Intermediate + triangle.Base
 	second := triangle.Ticker + triangle.Intermediate
 	third := triangle.Ticker + triangle.Base
-	e.Lock()
-	val := 1 / e.symbols[first].Ask * 0.999 * 1 / e.symbols[second].Ask * 0.999 * e.symbols[third].Bid * 0.999
-	e.Unlock()
-	if val > 1.001 {
-		tt := time.Now()
-		// e.api.NewOrder(first, "BUY", e.wallet[e.symbols[first].Base], e.symbols[first].BasePrecision)
-		// e.api.NewOrder(second, "BUY", e.wallet[e.symbols[second].Base], e.symbols[second].BasePrecision)
-		// e.api.NewOrder(first, "SELL", e.wallet[e.symbols[third].Quote], e.symbols[second].QuotePrecision)
 
-		e.api.NewTestOrder()
-		e.api.NewTestOrder()
-		e.api.NewTestOrder()
-		val1 := 1 / e.symbols[first].Ask * 0.999 * 1 / e.symbols[second].Ask * 0.999 * e.symbols[third].Bid * 0.999
-		fmt.Println("BUY", first, " ->  BUY", second, " ->  SELL", third, " = ", val, " | API:", time.Since(tt), " | ", val1)
-	}
+	tt := time.Now()
+	// e.api.NewOrder(first, "BUY", e.wallet[e.symbols[first].Base], e.symbols[first].BasePrecision)
+	// e.api.NewOrder(second, "BUY", e.wallet[e.symbols[second].Base], e.symbols[second].BasePrecision)
+	// e.api.NewOrder(first, "SELL", e.wallet[e.symbols[third].Quote], e.symbols[second].QuotePrecision)
 
+	e.api.NewTestOrder()
+	e.api.NewTestOrder()
+	e.api.NewTestOrder()
+
+	// TODO: Remove later
+	p := e.profitability(triangle)
+
+	fmt.Println("BUY", first, " ->  BUY", second, " ->  SELL", third, " = ", profitability, " | API:", time.Since(tt), " | ", p)
+}
+
+func (e *Engine) makeReverseTrade(triangle Triangle, profitability float64) {
 	// Buy - Sell - Sell
-	// e.Lock()
-	// val = 1 / e.symbols[third].Ask * 0.999 * e.symbols[second].Bid * 0.999 * e.symbols[first].Bid * 0.999
-	// e.Unlock()
-	// if val > 1 {
-	// 	tt := time.Now()
-	// 	e.api.NewOrder(first, "BUY", e.wallet[e.symbols[third].Base], e.symbols[first].BasePrecision)
+	tt := time.Now()
+	// 	e.api.NewOrder(third, "BUY", e.wallet[e.symbols[third].Base], e.symbols[first].BasePrecision)
 	// 	e.api.NewOrder(second, "SELL", e.wallet[e.symbols[second].Quote], e.symbols[second].QuotePrecision)
 	// 	e.api.NewOrder(first, "SELL", e.wallet[e.symbols[first].Quote], e.symbols[second].QuotePrecision)
 
-	// 	e.api.NewTestOrder()
-	// 	e.api.NewTestOrder()
-	// 	e.api.NewTestOrder()
-	// 	val1 := 1 / e.symbols[triangle.Ticker+triangle.Base].Ask * 0.999 * e.symbols[triangle.Ticker+triangle.Intermediate].Bid * 0.999 * e.symbols[triangle.Intermediate+triangle.Base].Bid * 0.999
-	// 	fmt.Println(triangle.Ticker+triangle.Base, " -> ", triangle.Ticker+triangle.Intermediate, " -> ", triangle.Intermediate+triangle.Base, " = ", val, " | API:", time.Since(tt), " | ", val1)
-	// }
+	e.api.NewTestOrder()
+	e.api.NewTestOrder()
+	e.api.NewTestOrder()
+
+	// TODO: Remove later
+	p := e.reverseProfitability(triangle)
+
+	fmt.Println("BUY", triangle.ThirdPair(), " ->  SELL", triangle.SecondPair(), " ->  SELL", triangle.FirstPair(), " = ", profitability, " | API:", time.Since(tt), " | ", p)
 }
