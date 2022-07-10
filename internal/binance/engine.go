@@ -115,14 +115,14 @@ func NewEngine(cfg *config.Config, bases []string) *Engine {
 	}
 	log.Info("Successfully initialized wallet websocket.")
 
-	log.Info("Testing latency to api.binance.com...")
-	for i := range []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15} {
-		tt := time.Now()
-		a.NewTestOrder()
-		a.NewTestOrder()
-		a.NewTestOrder()
-		fmt.Println(fmt.Sprintf("T%v:", i), time.Since(tt))
-	}
+	// log.Info("Testing latency to api.binance.com...")
+	// for i := range []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15} {
+	// 	tt := time.Now()
+	// 	a.NewTestOrder()
+	// 	a.NewTestOrder()
+	// 	a.NewTestOrder()
+	// 	fmt.Println(fmt.Sprintf("T%v:", i), time.Since(tt))
+	// }
 
 	log.Info("Successfully initialized the engine.")
 
@@ -163,6 +163,14 @@ func (e *Engine) Run() {
 					Bid:       b,
 					Ask:       a,
 					Precision: s.Precision,
+				}
+				for _, t := range e.triangles {
+					if p := e.profitability(t); p > 1.001 {
+						e.makeTrade(t, p)
+					}
+					if p := e.reverseProfitability(t); p > 1.001 {
+						e.makeReverseTrade(t, p)
+					}
 				}
 			}
 			e.Unlock()
@@ -224,26 +232,30 @@ func (e *Engine) Run() {
 	// 	}
 	// }()
 
-	log.Info("Starting triangle goroutines...")
-	for _, t := range e.triangles {
-		t := t
-		go func() {
-			defer close(d)
-			for {
-				e.Lock()
-				p := e.profitability(t)
-				rp := e.reverseProfitability(t)
-				e.Unlock()
+	// log.Info("Starting triangle goroutines...")
+	// for _, t := range e.triangles {
+	// 	t := t
+	// 	go func() {
+	// 		defer close(d)
+	// 		for {
+	// 			e.Lock()
+	// 			p := e.profitability(t)
+	// 			rp := e.reverseProfitability(t)
+	// 			e.Unlock()
 
-				if p > 1.001 {
-					e.makeTrade(t, p)
-				}
-				if rp > 1.001 {
-					e.makeReverseTrade(t, p)
-				}
-			}
-		}()
-	}
+	// 			if p > 0.999 || rp > 0.999 {
+	// 				fmt.Println(t, p, rp)
+	// 			}
+
+	// 			if p > 1.001 {
+	// 				e.makeTrade(t, p)
+	// 			}
+	// 			if rp > 1.001 {
+	// 				e.makeReverseTrade(t, p)
+	// 			}
+	// 		}
+	// 	}()
+	// }
 
 	for {
 		select {
