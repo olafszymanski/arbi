@@ -236,11 +236,10 @@ func (e *Engine) Run() {
 
 				if p > 1.001 {
 					e.makeTrade(t, p)
-					fmt.Println(t, p)
 					return
 				}
 				if rp > 1.001 {
-					// e.makeReverseTrade(t, p)
+					e.makeReverseTrade(t, p)
 					return
 				}
 			}
@@ -281,30 +280,29 @@ func (e *Engine) makeTrade(triangle Triangle, profitability float64) {
 	// e.api.NewTestOrder()
 	// e.api.NewTestOrder()
 
-	// TODO: Remove later
-	e.Lock()
-	p := e.profitability(triangle)
-	e.Unlock()
+	// // TODO: Remove later
+	// e.Lock()
+	// p := e.profitability(triangle)
+	// e.Unlock()
 
-	fmt.Println("BUY", triangle.FirstPair(), " ->  BUY", triangle.SecondPair(), " ->  SELL", triangle.ThirdPair(), " = ", profitability, " | API:", s, " | Final:", p)
+	fmt.Println("BUY", triangle.FirstPair(), " ->  BUY", triangle.SecondPair(), " ->  SELL", triangle.ThirdPair(), " = ", profitability, " | API:", s)
 }
 
 func (e *Engine) makeReverseTrade(triangle Triangle, profitability float64) {
 	// Buy - Sell - Sell
-	// 	e.api.NewOrder(third, "BUY", e.wallet[e.symbols[third].Base], e.symbols[first].BasePrecision)
-	// 	e.api.NewOrder(second, "SELL", e.wallet[e.symbols[second].Quote], e.symbols[second].QuotePrecision)
-	// 	e.api.NewOrder(first, "SELL", e.wallet[e.symbols[first].Quote], e.symbols[second].QuotePrecision)
-
 	t := time.Now()
-	e.api.NewTestOrder()
-	e.api.NewTestOrder()
-	e.api.NewTestOrder()
+	e.api.NewOrder(triangle.ThirdPair(), "BUY", e.wallet[e.symbols[triangle.ThirdPair()].Base], e.symbols[triangle.ThirdPair()].BasePrecision)
+	e.api.NewOrder(triangle.SecondPair(), "SELL", e.wallet[e.symbols[triangle.SecondPair()].Quote], e.symbols[triangle.SecondPair()].QuotePrecision)
+	e.api.NewOrder(triangle.FirstPair(), "SELL", e.wallet[e.symbols[triangle.FirstPair()].Quote], e.symbols[triangle.FirstPair()].QuotePrecision)
+	// e.api.NewTestOrder()
+	// e.api.NewTestOrder()
+	// e.api.NewTestOrder()
 	s := time.Since(t)
 
-	// TODO: Remove later
-	e.Lock()
-	p := e.reverseProfitability(triangle)
-	e.Unlock()
+	// // TODO: Remove later
+	// e.Lock()
+	// p := e.reverseProfitability(triangle)
+	// e.Unlock()
 
-	fmt.Println("BUY", triangle.ThirdPair(), " ->  SELL", triangle.SecondPair(), " ->  SELL", triangle.FirstPair(), " = ", profitability, " | API:", s, " | Final:", p)
+	fmt.Println("BUY", triangle.ThirdPair(), " ->  SELL", triangle.SecondPair(), " ->  SELL", triangle.FirstPair(), " = ", profitability, " | API:", s)
 }
