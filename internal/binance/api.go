@@ -162,9 +162,13 @@ func (a *API) NewOrder(symbol, side string, quantity float64, precision int) err
 		return err
 	}
 	r.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
-	if _, err := a.httpClient.Do(r); err != nil {
+	res, err := a.httpClient.Do(r)
+	if err != nil {
 		return err
 	}
+	b := make([]byte, 200)
+	res.Body.Read(b)
+	fmt.Println(string(b))
 	return nil
 }
 
