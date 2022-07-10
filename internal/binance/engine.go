@@ -39,6 +39,7 @@ type Engine struct {
 	*sync.RWMutex
 	cfg                *config.Config
 	api                *API
+	listenKey          string
 	orderBookWebsocket *OrderBookWebsocket
 	walletWebsocket    *WalletWebsocket
 	triangles          []Triangle
@@ -50,6 +51,8 @@ type Engine struct {
 }
 
 func NewEngine(cfg *config.Config, bases []string) *Engine {
+	log.Info("Initializing the engine...")
+
 	f := NewURLFactory()
 	a := NewAPI(cfg, f)
 	v := NewValidator()
@@ -60,59 +63,73 @@ func NewEngine(cfg *config.Config, bases []string) *Engine {
 	if err != nil {
 		log.WithError(err).Panic()
 	}
+	log.Info("Successfully retrieved exchange info.")
 	job, err := a.GetOrderBook()
 	if err != nil {
 		log.WithError(err).Panic()
 	}
+	log.Info("Successfully retrieved order books.")
 	// TODO: Fetch trading fees
 
 	s, err := c.ToSymbols(js, job)
 	if err != nil {
 		log.WithError(err).Panic()
 	}
+	log.Info("Successfully converted JSON symbols data to symbols.")
 
 	t, syms, err := g.Generate(s, bases)
 	if err != nil {
 		log.WithError(err).Panic()
 	}
+	log.Info("Successfully generated triangles and symbol map.")
 
 	ja, err := a.GetUserAssets()
 	if err != nil {
 		log.WithError(err).Panic()
 	}
+	log.Info("Successfully retrieved user assets.")
 
 	w, err := c.ToWallet(ja)
 	if err != nil {
 		log.WithError(err).Panic()
 	}
+	log.Info("Successfully converted JSON user assets data to wallet.")
 
 	obw, err := NewOrderBookWebsocket(f)
 	if err != nil {
 		log.WithError(err).Panic()
 	}
+	log.Info("Successfully initialized order book websocket.")
 
 	k, err := a.GetListenKey()
 	if err != nil {
 		log.WithError(err).Panic()
 	}
+	log.Info("Successfully retrieved the listen key.")
 
 	ww, err := NewWalletWebsocket(f, k)
 	if err != nil {
 		log.WithError(err).Panic()
 	}
+	log.Info("Successfully initialized wallet websocket.")
 
-	// for i := range []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20} {
-	// 	tt := time.Now()
-	// 	a.NewTestOrder()
-	// 	a.NewTestOrder()
-	// 	a.NewTestOrder()
-	// 	fmt.Println(i, ": ", time.Since(tt))
-	// }
+	log.Info("Testing latency to api.binance.com...")
+	for i := range []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15} {
+		tt := time.Now()
+		a.NewTestOrder()
+		a.NewTestOrder()
+		a.NewTestOrder()
+		fmt.Println(fmt.Sprintf("T%v:", i), time.Since(tt))
+	}
 
-	return &Engine{&sync.RWMutex{}, cfg, a, obw, ww, t, syms, w, 0, 0, false}
+	log.Info("Successfully initialized the engine.")
+
+	return &Engine{&sync.RWMutex{}, cfg, a, k, obw, ww, t, syms, w, 0, 0, false}
 }
 
 func (e *Engine) Run() {
+	log.Info("Starting the main engine function...")
+
 	d := make(chan struct{})
 	i := make(chan os.Signal, 1)
 	signal.Notify(i, os.Interrupt)
@@ -122,6 +139,8 @@ func (e *Engine) Run() {
 	go func() {
 		defer close(d)
 		defer e.orderBookWebsocket.Close()
+
+		log.Info("Starting order book websocket...")
 
 		for {
 			o, err := e.orderBookWebsocket.Read()
@@ -153,6 +172,8 @@ func (e *Engine) Run() {
 		defer close(d)
 		defer e.walletWebsocket.Close()
 
+		log.Info("Starting wallet websocket...")
+
 		for {
 			b, err := e.walletWebsocket.Read()
 			if err != nil {
@@ -168,6 +189,15 @@ func (e *Engine) Run() {
 				e.wallet[bal.Asset] = a
 				e.Unlock()
 			}
+		}
+	}()
+
+	go func() {
+		defer close(d)
+		for {
+			time.Sleep(time.Minute * 30)
+			e.api.KeepAliveListenKey(e.listenKey)
+			log.Info("Successfully sent keep alive listen key request...")
 		}
 	}()
 
@@ -193,6 +223,7 @@ func (e *Engine) Run() {
 	// 	}
 	// }()
 
+	log.Info("Starting triangle goroutines...")
 	for _, t := range e.triangles {
 		t := t
 		go func() {
