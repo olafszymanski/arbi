@@ -236,6 +236,7 @@ func (e *Engine) Run() {
 
 				if p > 1.001 {
 					e.makeTrade(t, p)
+					fmt.Println(t, p)
 					return
 				}
 				if rp > 1.001 {
@@ -286,7 +287,6 @@ func (e *Engine) makeTrade(triangle Triangle, profitability float64) {
 	e.Unlock()
 
 	fmt.Println("BUY", triangle.FirstPair(), " ->  BUY", triangle.SecondPair(), " ->  SELL", triangle.ThirdPair(), " = ", profitability, " | API:", s, " | Final:", p)
-
 }
 
 func (e *Engine) makeReverseTrade(triangle Triangle, profitability float64) {
