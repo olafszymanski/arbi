@@ -1,16 +1,13 @@
 package binance
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"time"
 
 	"github.com/olafszymanski/arbi/config"
 	"github.com/olafszymanski/arbi/pkg/utils"
-	"golang.org/x/net/http2"
 )
 
 type jsonLotSizeFilter struct {
@@ -46,23 +43,15 @@ type jsonListenKey struct {
 }
 
 type API struct {
-	cfg         *config.Config
-	factory     *URLFactory
-	httpClient  *http.Client
-	http2Client *http.Client
+	cfg        *config.Config
+	factory    *URLFactory
+	httpClient *http.Client
 }
 
 // TODO: Add error handling {"code":-2014,"msg":"API-key format invalid."}
 
 func NewAPI(cfg *config.Config, factory *URLFactory) *API {
-	c := &http.Client{}
-	c2 := &http.Client{}
-	c2.Transport = &http2.Transport{
-		AllowHTTP: true,
-		DialTLS: func(netw, addr string, cfg *tls.Config) (net.Conn, error) {
-			return net.Dial(netw, addr)
-		}}
-	return &API{cfg, factory, c, c2}
+	return &API{cfg, factory, &http.Client{}}
 }
 
 func (a *API) GetExchangeInfo() ([]jsonSymbol, error) {
@@ -74,7 +63,6 @@ func (a *API) GetExchangeInfo() ([]jsonSymbol, error) {
 	}
 	res, err := a.httpClient.Do(r)
 	if err != nil {
-		fmt.Println("err")
 		return nil, err
 	}
 	defer res.Body.Close()
