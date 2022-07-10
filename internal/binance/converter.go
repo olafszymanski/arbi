@@ -14,7 +14,7 @@ func (c *APIConverter) ToSymbols(symbols []jsonSymbol, orderBooks []jsonOrderBoo
 	syms := make([]Symbol, 0)
 	for _, s := range symbols {
 		for _, b := range orderBooks {
-			if c.validator.Validate(s, b) {
+			if i, ok := c.validator.Validate(s, b); ok {
 				bid, err := utils.Stf(b.Bid)
 				if err != nil {
 					return nil, err
@@ -23,14 +23,18 @@ func (c *APIConverter) ToSymbols(symbols []jsonSymbol, orderBooks []jsonOrderBoo
 				if err != nil {
 					return nil, err
 				}
+				sp, err := utils.Stf(s.Filters[i].Precision)
+				if err != nil {
+					return nil, err
+				}
+				p := utils.GetPrecision(sp)
 				syms = append(syms, Symbol{
-					Symbol:         s.Symbol,
-					Base:           s.Base,
-					BasePrecision:  s.BasePrecision,
-					Quote:          s.Quote,
-					QuotePrecision: s.QuotePrecision,
-					Bid:            bid,
-					Ask:            ask,
+					Symbol:    s.Symbol,
+					Base:      s.Base,
+					Quote:     s.Quote,
+					Bid:       bid,
+					Ask:       ask,
+					Precision: p,
 				})
 			}
 		}

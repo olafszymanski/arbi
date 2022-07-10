@@ -13,13 +13,17 @@ import (
 	"golang.org/x/net/http2"
 )
 
+type jsonLotSizeFilter struct {
+	Type      string `json:"filterType"`
+	Precision string `json:"stepSize"`
+}
+
 type jsonSymbol struct {
-	Symbol         string   `json:"symbol"`
-	Base           string   `json:"baseAsset"`
-	BasePrecision  int      `json:"baseAssetPrecision"`
-	Quote          string   `json:"quoteAsset"`
-	QuotePrecision int      `json:"quoteAssetPrecision"`
-	Permissions    []string `json:"permissions"`
+	Symbol      string              `json:"symbol"`
+	Base        string              `json:"baseAsset"`
+	Quote       string              `json:"quoteAsset"`
+	Permissions []string            `json:"permissions"`
+	Filters     []jsonLotSizeFilter `json:"filters"`
 }
 
 type jsonExchangeInfo struct {
@@ -170,7 +174,7 @@ func (a *API) NewOrder(symbol, side string, quantity float64, precision int) err
 		return err
 	}
 	r.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
-	if _, err := a.http2Client.Do(r); err != nil {
+	if _, err := a.httpClient.Do(r); err != nil {
 		return err
 	}
 	return nil
@@ -186,7 +190,7 @@ func (a *API) NewTestOrder() error {
 		return err
 	}
 	r.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
-	if _, err := a.http2Client.Do(r); err != nil {
+	if _, err := a.httpClient.Do(r); err != nil {
 		return err
 	}
 	return nil
