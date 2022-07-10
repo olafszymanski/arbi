@@ -80,7 +80,9 @@ func NewEngine(cfg *config.Config, bases []string) *Engine {
 	if err != nil {
 		log.WithError(err).Panic()
 	}
-	t = t[:1000]
+	if len(t) > 1000 {
+		t = t[:1000]
+	}
 	log.Info("Successfully generated triangles and symbol map.")
 
 	ja, err := a.GetUserAssets()
