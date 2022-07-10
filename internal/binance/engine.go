@@ -236,10 +236,10 @@ func (e *Engine) Run() {
 				e.Unlock()
 
 				if !b {
-					if p > 1.01 {
+					if p > 1.001 {
 						e.makeTrade(t, p)
 					}
-					if rp > 1.01 {
+					if rp > 1.001 {
 						e.makeReverseTrade(t, p)
 					}
 				}
@@ -271,39 +271,41 @@ func (e *Engine) reverseProfitability(triangle Triangle) float64 {
 
 func (e *Engine) makeTrade(triangle Triangle, profitability float64) {
 	// Buy - Buy - Sell
-	t := time.Now()
 	// e.api.NewOrder(first, "BUY", e.wallet[e.symbols[first].Base], e.symbols[first].BasePrecision)
 	// e.api.NewOrder(second, "BUY", e.wallet[e.symbols[second].Base], e.symbols[second].BasePrecision)
 	// e.api.NewOrder(first, "SELL", e.wallet[e.symbols[third].Quote], e.symbols[second].QuotePrecision)
 
+	t := time.Now()
 	e.api.NewTestOrder()
 	e.api.NewTestOrder()
 	e.api.NewTestOrder()
+	s := time.Since(t)
 
 	// TODO: Remove later
 	e.Lock()
 	p := e.profitability(triangle)
 	e.Unlock()
 
-	fmt.Println("BUY", triangle.FirstPair(), " ->  BUY", triangle.SecondPair(), " ->  SELL", triangle.ThirdPair(), " = ", profitability, " | API:", time.Since(t), " | Final:", p)
+	fmt.Println("BUY", triangle.FirstPair(), " ->  BUY", triangle.SecondPair(), " ->  SELL", triangle.ThirdPair(), " = ", profitability, " | API:", s, " | Final:", p)
 
 }
 
 func (e *Engine) makeReverseTrade(triangle Triangle, profitability float64) {
 	// Buy - Sell - Sell
-	t := time.Now()
 	// 	e.api.NewOrder(third, "BUY", e.wallet[e.symbols[third].Base], e.symbols[first].BasePrecision)
 	// 	e.api.NewOrder(second, "SELL", e.wallet[e.symbols[second].Quote], e.symbols[second].QuotePrecision)
 	// 	e.api.NewOrder(first, "SELL", e.wallet[e.symbols[first].Quote], e.symbols[second].QuotePrecision)
 
+	t := time.Now()
 	e.api.NewTestOrder()
 	e.api.NewTestOrder()
 	e.api.NewTestOrder()
+	s := time.Since(t)
 
 	// TODO: Remove later
 	e.Lock()
 	p := e.reverseProfitability(triangle)
 	e.Unlock()
 
-	fmt.Println("BUY", triangle.ThirdPair(), " ->  SELL", triangle.SecondPair(), " ->  SELL", triangle.FirstPair(), " = ", profitability, " | API:", time.Since(t), " | Final:", p)
+	fmt.Println("BUY", triangle.ThirdPair(), " ->  SELL", triangle.SecondPair(), " ->  SELL", triangle.FirstPair(), " = ", profitability, " | API:", s, " | Final:", p)
 }
