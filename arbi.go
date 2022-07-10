@@ -11,6 +11,6 @@ func main() {
 	log.SetFormatter(&log.JSONFormatter{})
 
 	cfg := config.NewConfig()
-	e := binance.NewEngine(cfg, []string{"BTC"})
+	e := binance.NewEngine(cfg, []string{"USDT"})
 	e.Run()
 }
