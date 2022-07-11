@@ -10,6 +10,11 @@ import (
 	"github.com/olafszymanski/arbi/pkg/utils"
 )
 
+type jsonError struct {
+	Code    string `json:"code"`
+	Message string `json:"msg"`
+}
+
 type jsonLotSizeFilter struct {
 	Type      string `json:"filterType"`
 	Precision string `json:"stepSize"`
@@ -74,7 +79,11 @@ func (a *API) GetExchangeInfo() ([]jsonSymbol, error) {
 
 	var e jsonExchangeInfo
 	if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
-		return nil, err
+		var e jsonError
+		if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("[%s]: %s", e.Code, e.Message)
 	}
 	return e.Symbols, nil
 }
@@ -94,7 +103,11 @@ func (a *API) GetOrderBook() ([]jsonOrderBook, error) {
 
 	var o []jsonOrderBook
 	if err := json.NewDecoder(res.Body).Decode(&o); err != nil {
-		return nil, err
+		var e jsonError
+		if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("[%s]: %s", e.Code, e.Message)
 	}
 	return o, nil
 }
@@ -117,7 +130,11 @@ func (a *API) GetUserAssets() ([]jsonAsset, error) {
 
 	var as []jsonAsset
 	if err := json.NewDecoder(res.Body).Decode(&as); err != nil {
-		return nil, err
+		var e jsonError
+		if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("[%s]: %s", e.Code, e.Message)
 	}
 	return as, nil
 }
@@ -132,13 +149,21 @@ func (a *API) GetListenKey() (string, error) {
 	r.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
 	res, err := a.httpClient.Do(r)
 	if err != nil {
-		return "", err
+		var e jsonError
+		if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+			return "", err
+		}
+		return "", fmt.Errorf("[%s]: %s", e.Code, e.Message)
 	}
 	defer res.Body.Close()
 
 	var l jsonListenKey
 	if err := json.NewDecoder(res.Body).Decode(&l); err != nil {
-		return "", err
+		var e jsonError
+		if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+			return "", err
+		}
+		return "", fmt.Errorf("[%s]: %s", e.Code, e.Message)
 	}
 	return l.Key, nil
 }
@@ -174,8 +199,11 @@ func (a *API) NewOrder(symbol, side string, quantity float64, precision int) (*j
 
 	var o jsonOrder
 	if err := json.NewDecoder(res.Body).Decode(&o); err != nil {
-		// TODO: Check if it is binance error
-		return nil, err
+		var e jsonError
+		if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("[%s]: %s", e.Code, e.Message)
 	}
 	return &o, nil
 }
