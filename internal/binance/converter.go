@@ -1,6 +1,8 @@
 package binance
 
-import "github.com/olafszymanski/arbi/pkg/utils"
+import (
+	"github.com/olafszymanski/arbi/pkg/utils"
+)
 
 type APIConverter struct {
 	validator *Validator
@@ -42,16 +44,19 @@ func (c *APIConverter) ToSymbols(symbols []jsonSymbol, orderBooks []jsonOrderBoo
 	return syms, nil
 }
 
-func (c *APIConverter) ToWallet(assets []jsonAsset) (Wallet, error) {
-	w := make(Wallet)
-	for _, a := range assets {
-		f, err := utils.Stf(a.Free)
+func (c *APIConverter) ToAssets(assets []jsonAsset) ([]Asset, error) {
+	a := make([]Asset, 0)
+	for _, as := range assets {
+		f, err := utils.Stf(as.Free)
 		if err != nil {
 			return nil, err
 		}
-		w[a.Asset] = f
+		a = append(a, Asset{
+			Symbol: as.Asset,
+			Amount: f,
+		})
 	}
-	return w, nil
+	return a, nil
 }
 
 type WebsocketConverter struct {

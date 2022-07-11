@@ -42,6 +42,11 @@ type jsonListenKey struct {
 	Key string `json:"listenKey"`
 }
 
+type jsonOrder struct {
+	Symbol   string `json:"symbol"`
+	Quantity string `json:"executedQty"`
+}
+
 type API struct {
 	cfg        *config.Config
 	factory    *URLFactory
@@ -151,7 +156,7 @@ func (a *API) KeepAliveListenKey(listenKey string) error {
 	return nil
 }
 
-func (a *API) NewOrder(symbol, side string, quantity float64, precision int) error {
+func (a *API) NewOrder(symbol, side string, quantity float64, precision int) (*jsonOrder, error) {
 	q := utils.Round(quantity, precision)
 	p := fmt.Sprintf("symbol=%s&side=%s&type=MARKET&quantity=%v&recvWindow=10000&timestamp=%v", symbol, side, q, time.Now().UTC().UnixMilli())
 	s := utils.Signature(a.cfg.Binance.SecretKey, p)
@@ -159,17 +164,20 @@ func (a *API) NewOrder(symbol, side string, quantity float64, precision int) err
 
 	r, err := http.NewRequest("POST", u, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	r.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
 	res, err := a.httpClient.Do(r)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	b := make([]byte, 200)
-	res.Body.Read(b)
-	fmt.Println(string(b), symbol, side, quantity, q, precision)
-	return nil
+
+	var o jsonOrder
+	if err := json.NewDecoder(res.Body).Decode(&o); err != nil {
+		// TODO: Check if it is binance error
+		return nil, err
+	}
+	return &o, nil
 }
 
 func (a *API) NewTestOrder() error {

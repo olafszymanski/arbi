@@ -21,17 +21,9 @@ type Symbol struct {
 	Precision int
 }
 
-type Wallet map[string]float64
-
-func (w Wallet) Update(assets []jsonAsset) error {
-	for _, a := range assets {
-		f, err := utils.Stf(a.Free)
-		if err != nil {
-			return err
-		}
-		w[a.Asset] = f
-	}
-	return nil
+type Asset struct {
+	Symbol string
+	Amount float64
 }
 
 type Engine struct {
@@ -42,8 +34,7 @@ type Engine struct {
 	orderBookWebsocket *OrderBookWebsocket
 	walletWebsocket    *WalletWebsocket
 	triangles          []Triangle
-	symbols            map[string]Symbol
-	wallet             Wallet
+	data               *DataManager
 	orders             uint8
 	dailyOrders        uint32
 	blocked            bool
@@ -58,75 +49,16 @@ func NewEngine(cfg *config.Config, bases []string) *Engine {
 	c := NewAPIConverter(v)
 	g := NewGenerator()
 
-	js, err := a.GetExchangeInfo()
-	if err != nil {
-		log.WithError(err).Panic()
-	}
-	log.Info("Successfully retrieved exchange info.")
-	job, err := a.GetOrderBook()
-	if err != nil {
-		log.WithError(err).Panic()
-	}
-	log.Info("Successfully retrieved order books.")
-	// TODO: Fetch trading fees
+	js, job, ja := getData(a)
+	s, as := convert(c, js, job, ja)
+	t, d := generate(g, s, as, bases)
+	k, obw, ww := connectWebsockets(f, a)
 
-	s, err := c.ToSymbols(js, job)
-	if err != nil {
-		log.WithError(err).Panic()
-	}
-	log.Info("Successfully converted JSON symbols data to symbols.")
-
-	t, syms, err := g.Generate(s, bases)
-	if err != nil {
-		log.WithError(err).Panic()
-	}
-	if len(t) > 1000 {
-		t = t[:1000]
-	}
-	log.Info("Successfully generated triangles and symbol map.")
-
-	ja, err := a.GetUserAssets()
-	if err != nil {
-		log.WithError(err).Panic()
-	}
-	log.Info("Successfully retrieved user assets.")
-
-	w, err := c.ToWallet(ja)
-	if err != nil {
-		log.WithError(err).Panic()
-	}
-	log.Info("Successfully converted JSON user assets data to wallet.")
-
-	obw, err := NewOrderBookWebsocket(f)
-	if err != nil {
-		log.WithError(err).Panic()
-	}
-	log.Info("Successfully initialized order book websocket.")
-
-	k, err := a.GetListenKey()
-	if err != nil {
-		log.WithError(err).Panic()
-	}
-	log.Info("Successfully retrieved the listen key.")
-
-	ww, err := NewWalletWebsocket(f, k)
-	if err != nil {
-		log.WithError(err).Panic()
-	}
-	log.Info("Successfully initialized wallet websocket.")
-
-	// log.Info("Testing latency to api.binance.com...")
-	// for i := range []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15} {
-	// 	tt := time.Now()
-	// 	a.NewTestOrder()
-	// 	a.NewTestOrder()
-	// 	a.NewTestOrder()
-	// 	fmt.Println(fmt.Sprintf("T%v:", i), time.Since(tt))
-	// }
+	testLatency(a)
 
 	log.Info("Successfully initialized the engine.")
 
-	return &Engine{&sync.RWMutex{}, cfg, a, k, obw, ww, t, syms, w, 0, 0, false}
+	return &Engine{&sync.RWMutex{}, cfg, a, k, obw, ww, t, NewDataManager(d), 0, 0, false}
 }
 
 func (e *Engine) Run() {
@@ -154,18 +86,17 @@ func (e *Engine) Run() {
 			if err != nil {
 				log.WithError(err).Panic()
 			}
-			e.Lock()
-			if s, ok := e.symbols[o.Symbol]; ok {
-				e.symbols[o.Symbol] = Symbol{
+			if s, ok := e.data.SymbolExists(o.Symbol); ok {
+				e.data.StoreSymbol(o.Symbol, Symbol{
 					Symbol:    s.Symbol,
 					Base:      s.Base,
 					Quote:     s.Quote,
 					Bid:       b,
 					Ask:       a,
 					Precision: s.Precision,
-				}
+				})
 				for _, t := range e.triangles {
-					if p := e.profitability(t); p > 0.001 {
+					if p := e.profitability(t); p > 0 {
 						e.makeTrade(t, p)
 						return
 					}
@@ -175,7 +106,6 @@ func (e *Engine) Run() {
 					// }
 				}
 			}
-			e.Unlock()
 		}
 	}()
 
@@ -196,9 +126,7 @@ func (e *Engine) Run() {
 				if err != nil {
 					log.WithError(err).Panic()
 				}
-				e.Lock()
-				e.wallet[bal.Asset] = a
-				e.Unlock()
+				e.data.StoreFloat(bal.Asset, a)
 			}
 		}
 	}()
@@ -211,28 +139,6 @@ func (e *Engine) Run() {
 			log.Info("Successfully sent keep alive listen key request...")
 		}
 	}()
-
-	// go func() {
-	// 	defer close(d)
-	// 	for {
-	// 		e.Lock()
-	// 		o := e.orders
-	// 		// do := e.dailyOrders
-	// 		e.Unlock()
-
-	// 		if o > 48 {
-	// 			e.Lock()
-	// 			e.blocked = true
-	// 			e.orders = 0
-	// 			e.blocked = false
-	// 			e.Unlock()
-	// 		}
-	// 		// TODO: Implement daily orders
-	// 		// if do > 159990 {
-	// 		// 	e.Lock()
-	// 		// }
-	// 	}
-	// }()
 
 	// log.Info("Starting triangle goroutines...")
 	// for _, t := range e.triangles {
@@ -274,30 +180,45 @@ func (e *Engine) Run() {
 }
 
 func (e *Engine) profitability(triangle Triangle) float64 {
-	return 1 / e.symbols[triangle.FirstPair()].Ask * 0.999 * 1 / e.symbols[triangle.SecondPair()].Ask * 0.999 * e.symbols[triangle.ThirdPair()].Bid * 0.999
+	f := e.data.LoadSymbol(triangle.FirstPair())
+	s := e.data.LoadSymbol(triangle.SecondPair())
+	t := e.data.LoadSymbol(triangle.ThirdPair())
+	return 1 / f.Ask * 0.999 * 1 / s.Ask * 0.999 * t.Bid * 0.999
 }
 
-func (e *Engine) reverseProfitability(triangle Triangle) float64 {
-	return 1 / e.symbols[triangle.ThirdPair()].Ask * 0.999 * e.symbols[triangle.SecondPair()].Bid * 0.999 * e.symbols[triangle.FirstPair()].Bid * 0.999
-}
+// func (e *Engine) reverseProfitability(triangle Triangle) float64 {
+// 	return 1 / e.symbols[triangle.ThirdPair()].Ask * 0.999 * e.symbols[triangle.SecondPair()].Bid * 0.999 * e.symbols[triangle.FirstPair()].Bid * 0.999
+// }
 
 func (e *Engine) makeTrade(triangle Triangle, profitability float64) {
 	// Buy - Buy - Sell
-	t := time.Now()
-	if err := e.api.NewOrder(triangle.FirstPair(), "BUY", e.wallet[e.symbols[triangle.FirstPair()].Quote]/e.symbols[triangle.FirstPair()].Ask, e.symbols[triangle.FirstPair()].Precision); err != nil {
-		log.WithError(err).Error("Error while placing new order")
-		return
-	}
-	if err := e.api.NewOrder(triangle.SecondPair(), "BUY", e.wallet[e.symbols[triangle.SecondPair()].Quote]/e.symbols[triangle.SecondPair()].Ask, e.symbols[triangle.SecondPair()].Precision); err != nil {
-		log.WithError(err).Error("Error while placing new order")
-		return
-	}
-	// fmt.Println(e.symbols[triangle.ThirdPair()].Base, triangle.ThirdPair(), e.wallet[e.symbols[triangle.ThirdPair()].Base], utils.Round(e.wallet[e.symbols[triangle.ThirdPair()].Base], 4))
-	if err := e.api.NewOrder(triangle.ThirdPair(), "SELL", e.wallet[e.symbols[triangle.ThirdPair()].Base], e.symbols[triangle.ThirdPair()].Precision); err != nil {
-		log.WithError(err).Error("Error while placing new order")
-		return
-	}
-	s := time.Since(t)
+	ti := time.Now()
+
+	f := e.data.LoadSymbol(triangle.FirstPair())
+	fq := e.data.LoadFloat(f.Quote)
+	fmt.Println(f.Quote, triangle.FirstPair(), fq/f.Ask, utils.Round(fq/f.Ask, f.Precision))
+
+	// o1, err := e.api.NewOrder(triangle.FirstPair(), "BUY", q1, fs.Precision)
+	// if err != nil {
+	// 	log.WithError(err).Error("Error while placing new order")
+	// 	return
+	// }
+	s := e.data.LoadSymbol(triangle.SecondPair())
+	sq := e.data.LoadFloat(s.Quote)
+	fmt.Println(s.Quote, triangle.SecondPair(), sq/s.Ask, utils.Round(sq/s.Ask, s.Precision))
+
+	// if err := e.api.NewOrder(triangle.SecondPair(), "BUY", q2, ss.Precision); err != nil {
+	// 	log.WithError(err).Error("Error while placing new order")
+	// 	return
+	// }
+	t := e.data.LoadSymbol(triangle.ThirdPair())
+	tq := e.data.LoadFloat(t.Base)
+	fmt.Println(t.Base, triangle.ThirdPair(), tq, utils.Round(tq, t.Precision))
+	// if err := e.api.NewOrder(triangle.ThirdPair(), "SELL", q3, ts.Precision); err != nil {
+	// 	log.WithError(err).Error("Error while placing new order")
+	// 	return
+	// }
+	si := time.Since(ti)
 
 	// e.api.NewTestOrder()
 	// e.api.NewTestOrder()
@@ -308,33 +229,112 @@ func (e *Engine) makeTrade(triangle Triangle, profitability float64) {
 	// p := e.profitability(triangle)
 	// e.Unlock()
 
-	fmt.Println("BUY", triangle.FirstPair(), " ->  BUY", triangle.SecondPair(), " ->  SELL", triangle.ThirdPair(), " = ", profitability, " | API:", s)
+	fmt.Println("BUY", triangle.FirstPair(), " ->  BUY", triangle.SecondPair(), " ->  SELL", triangle.ThirdPair(), " = ", profitability, " | API:", si)
 }
 
-func (e *Engine) makeReverseTrade(triangle Triangle, profitability float64) {
-	// Buy - Sell - Sell
-	t := time.Now()
-	if err := e.api.NewOrder(triangle.ThirdPair(), "BUY", e.wallet[e.symbols[triangle.ThirdPair()].Quote]/e.symbols[triangle.ThirdPair()].Ask, e.symbols[triangle.ThirdPair()].Precision); err != nil {
-		log.WithError(err).Error("Error while placing new order")
-		return
-	}
-	if err := e.api.NewOrder(triangle.SecondPair(), "SELL", e.wallet[e.symbols[triangle.SecondPair()].Base]/e.symbols[triangle.SecondPair()].Bid, e.symbols[triangle.SecondPair()].Precision); err != nil {
-		log.WithError(err).Error("Error while placing new order")
-		return
-	}
-	if err := e.api.NewOrder(triangle.FirstPair(), "SELL", e.wallet[e.symbols[triangle.FirstPair()].Base]/e.symbols[triangle.FirstPair()].Bid, e.symbols[triangle.FirstPair()].Precision); err != nil {
-		log.WithError(err).Error("Error while placing new order")
-		return
-	}
-	// e.api.NewTestOrder()
-	// e.api.NewTestOrder()
-	// e.api.NewTestOrder()
-	s := time.Since(t)
+// func (e *Engine) makeReverseTrade(triangle Triangle, profitability float64) {
+// 	// Buy - Sell - Sell
+// 	t := time.Now()
+// 	if err := e.api.NewOrder(triangle.ThirdPair(), "BUY", e.wallet[e.symbols[triangle.ThirdPair()].Quote]/e.symbols[triangle.ThirdPair()].Ask, e.symbols[triangle.ThirdPair()].Precision); err != nil {
+// 		log.WithError(err).Error("Error while placing new order")
+// 		return
+// 	}
+// 	if err := e.api.NewOrder(triangle.SecondPair(), "SELL", e.wallet[e.symbols[triangle.SecondPair()].Base]/e.symbols[triangle.SecondPair()].Bid, e.symbols[triangle.SecondPair()].Precision); err != nil {
+// 		log.WithError(err).Error("Error while placing new order")
+// 		return
+// 	}
+// 	if err := e.api.NewOrder(triangle.FirstPair(), "SELL", e.wallet[e.symbols[triangle.FirstPair()].Base]/e.symbols[triangle.FirstPair()].Bid, e.symbols[triangle.FirstPair()].Precision); err != nil {
+// 		log.WithError(err).Error("Error while placing new order")
+// 		return
+// 	}
+// 	// e.api.NewTestOrder()
+// 	// e.api.NewTestOrder()
+// 	// e.api.NewTestOrder()
+// 	s := time.Since(t)
 
-	// // TODO: Remove later
-	// e.Lock()
-	// p := e.reverseProfitability(triangle)
-	// e.Unlock()
+// 	// // TODO: Remove later
+// 	// e.Lock()
+// 	// p := e.reverseProfitability(triangle)
+// 	// e.Unlock()
 
-	fmt.Println("BUY", triangle.ThirdPair(), " ->  SELL", triangle.SecondPair(), " ->  SELL", triangle.FirstPair(), " = ", profitability, " | API:", s)
+// 	fmt.Println("BUY", triangle.ThirdPair(), " ->  SELL", triangle.SecondPair(), " ->  SELL", triangle.FirstPair(), " = ", profitability, " | API:", s)
+// }
+
+func getData(api *API) ([]jsonSymbol, []jsonOrderBook, []jsonAsset) {
+	// TODO: Fetch trading fees
+	s, err := api.GetExchangeInfo()
+	if err != nil {
+		log.WithError(err).Panic()
+	}
+	log.Info("Successfully retrieved exchange info.")
+	o, err := api.GetOrderBook()
+	if err != nil {
+		log.WithError(err).Panic()
+	}
+	log.Info("Successfully retrieved order books.")
+	a, err := api.GetUserAssets()
+	if err != nil {
+		log.WithError(err).Panic()
+	}
+	log.Info("Successfully retrieved user assets.")
+	return s, o, a
+}
+
+func convert(c *APIConverter, symbols []jsonSymbol, orderBooks []jsonOrderBook, assets []jsonAsset) ([]Symbol, []Asset) {
+	s, err := c.ToSymbols(symbols, orderBooks)
+	if err != nil {
+		log.WithError(err).Panic()
+	}
+	log.Info("Successfully converted JSON symbols data to symbols.")
+	a, err := c.ToAssets(assets)
+	if err != nil {
+		log.WithError(err).Panic()
+	}
+	log.Info("Successfully converted JSON assets data to assets.")
+	return s, a
+}
+
+func generate(generator *Generator, symbols []Symbol, assets []Asset, bases []string) ([]Triangle, sync.Map) {
+	t, d, err := generator.Generate(symbols, assets, bases)
+	if err != nil {
+		log.WithError(err).Panic()
+	}
+	if len(t) > 1000 {
+		t = t[:1000]
+	}
+	log.Info("Successfully generated triangles and symbol map.")
+	return t, d
+}
+
+func connectWebsockets(factory *URLFactory, api *API) (string, *OrderBookWebsocket, *WalletWebsocket) {
+	k, err := api.GetListenKey()
+	if err != nil {
+		log.WithError(err).Panic()
+	}
+	log.Info("Successfully retrieved the listen key.")
+
+	obw, err := NewOrderBookWebsocket(factory)
+	if err != nil {
+		log.WithError(err).Panic()
+	}
+	log.Info("Successfully initialized order book websocket.")
+	ww, err := NewWalletWebsocket(factory, k)
+	if err != nil {
+		log.WithError(err).Panic()
+	}
+	log.Info("Successfully initialized wallet websocket.")
+	return k, obw, ww
+}
+
+func testLatency(api *API) {
+	log.Info("Testing latency to api.binance.com...")
+	l := 0
+	for range []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15} {
+		tt := time.Now()
+		api.NewTestOrder()
+		api.NewTestOrder()
+		api.NewTestOrder()
+		l += int(time.Since(tt).Milliseconds())
+	}
+	log.Info(fmt.Sprintf("Average latency: %vms", l/15))
 }
