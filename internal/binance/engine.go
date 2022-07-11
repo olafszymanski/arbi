@@ -165,14 +165,14 @@ func (e *Engine) Run() {
 					Precision: s.Precision,
 				}
 				for _, t := range e.triangles {
-					if p := e.profitability(t); p > 1.001 {
+					if p := e.profitability(t); p > 0.001 {
 						e.makeTrade(t, p)
 						return
 					}
-					if p := e.reverseProfitability(t); p > 1.001 {
-						e.makeReverseTrade(t, p)
-						return
-					}
+					// if p := e.reverseProfitability(t); p > 1.001 {
+					// 	e.makeReverseTrade(t, p)
+					// 	return
+					// }
 				}
 			}
 			e.Unlock()
@@ -284,7 +284,6 @@ func (e *Engine) reverseProfitability(triangle Triangle) float64 {
 func (e *Engine) makeTrade(triangle Triangle, profitability float64) {
 	// Buy - Buy - Sell
 	t := time.Now()
-	// fmt.Println(e.symbols[triangle.FirstPair()].Quote, triangle.FirstPair(), utils.Round(e.wallet[e.symbols[triangle.FirstPair()].Quote]/e.symbols[triangle.FirstPair()].Ask, 5))
 	if err := e.api.NewOrder(triangle.FirstPair(), "BUY", e.wallet[e.symbols[triangle.FirstPair()].Quote]/e.symbols[triangle.FirstPair()].Ask, e.symbols[triangle.FirstPair()].Precision); err != nil {
 		log.WithError(err).Error("Error while placing new order")
 		return
@@ -293,7 +292,8 @@ func (e *Engine) makeTrade(triangle Triangle, profitability float64) {
 		log.WithError(err).Error("Error while placing new order")
 		return
 	}
-	if err := e.api.NewOrder(triangle.ThirdPair(), "SELL", e.wallet[e.symbols[triangle.ThirdPair()].Base]/e.symbols[triangle.ThirdPair()].Bid, e.symbols[triangle.ThirdPair()].Precision); err != nil {
+	// fmt.Println(e.symbols[triangle.ThirdPair()].Base, triangle.ThirdPair(), e.wallet[e.symbols[triangle.ThirdPair()].Base], utils.Round(e.wallet[e.symbols[triangle.ThirdPair()].Base], 4))
+	if err := e.api.NewOrder(triangle.ThirdPair(), "SELL", e.wallet[e.symbols[triangle.ThirdPair()].Base], e.symbols[triangle.ThirdPair()].Precision); err != nil {
 		log.WithError(err).Error("Error while placing new order")
 		return
 	}
