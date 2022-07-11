@@ -11,7 +11,7 @@ import (
 )
 
 type jsonError struct {
-	Code    string `json:"code"`
+	Code    int    `json:"code"`
 	Message string `json:"msg"`
 }
 
@@ -77,15 +77,18 @@ func (a *API) GetExchangeInfo() ([]jsonSymbol, error) {
 	}
 	defer res.Body.Close()
 
-	var e jsonExchangeInfo
+	var e jsonError
 	if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
-		var e jsonError
-		if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+		return nil, err
+	}
+	if len(e.Message) < 1 {
+		var ei jsonExchangeInfo
+		if err := json.NewDecoder(res.Body).Decode(&ei); err != nil {
 			return nil, err
 		}
-		return nil, fmt.Errorf("[%s]: %s", e.Code, e.Message)
+		return ei.Symbols, nil
 	}
-	return e.Symbols, nil
+	return nil, fmt.Errorf("[%v]: %s", e.Code, e.Message)
 }
 
 func (a *API) GetOrderBook() ([]jsonOrderBook, error) {
@@ -101,15 +104,18 @@ func (a *API) GetOrderBook() ([]jsonOrderBook, error) {
 	}
 	defer res.Body.Close()
 
-	var o []jsonOrderBook
-	if err := json.NewDecoder(res.Body).Decode(&o); err != nil {
-		var e jsonError
-		if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+	var e jsonError
+	if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+		return nil, err
+	}
+	if len(e.Message) < 1 {
+		var o []jsonOrderBook
+		if err := json.NewDecoder(res.Body).Decode(&o); err != nil {
 			return nil, err
 		}
-		return nil, fmt.Errorf("[%s]: %s", e.Code, e.Message)
+		return o, nil
 	}
-	return o, nil
+	return nil, fmt.Errorf("[%v]: %s", e.Code, e.Message)
 }
 
 func (a *API) GetUserAssets() ([]jsonAsset, error) {
@@ -128,15 +134,18 @@ func (a *API) GetUserAssets() ([]jsonAsset, error) {
 	}
 	defer res.Body.Close()
 
-	var as []jsonAsset
-	if err := json.NewDecoder(res.Body).Decode(&as); err != nil {
-		var e jsonError
-		if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+	var e jsonError
+	if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+		return nil, err
+	}
+	if len(e.Message) < 1 {
+		var as []jsonAsset
+		if err := json.NewDecoder(res.Body).Decode(&a); err != nil {
 			return nil, err
 		}
-		return nil, fmt.Errorf("[%s]: %s", e.Code, e.Message)
+		return as, nil
 	}
-	return as, nil
+	return nil, fmt.Errorf("[%v]: %s", e.Code, e.Message)
 }
 
 func (a *API) GetListenKey() (string, error) {
@@ -149,23 +158,22 @@ func (a *API) GetListenKey() (string, error) {
 	r.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
 	res, err := a.httpClient.Do(r)
 	if err != nil {
-		var e jsonError
-		if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
-			return "", err
-		}
-		return "", fmt.Errorf("[%s]: %s", e.Code, e.Message)
+		return "", err
 	}
 	defer res.Body.Close()
 
-	var l jsonListenKey
-	if err := json.NewDecoder(res.Body).Decode(&l); err != nil {
-		var e jsonError
-		if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+	var e jsonError
+	if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+		return "", err
+	}
+	if len(e.Message) < 1 {
+		var l jsonListenKey
+		if err := json.NewDecoder(res.Body).Decode(&l); err != nil {
 			return "", err
 		}
-		return "", fmt.Errorf("[%s]: %s", e.Code, e.Message)
+		return l.Key, nil
 	}
-	return l.Key, nil
+	return "", fmt.Errorf("[%v]: %s", e.Code, e.Message)
 }
 
 func (a *API) KeepAliveListenKey(listenKey string) error {
@@ -196,16 +204,20 @@ func (a *API) NewOrder(symbol, side string, quantity float64, precision int) (*j
 	if err != nil {
 		return nil, err
 	}
+	defer res.Body.Close()
 
-	var o jsonOrder
-	if err := json.NewDecoder(res.Body).Decode(&o); err != nil {
-		var e jsonError
-		if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+	var e jsonError
+	if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+		return nil, err
+	}
+	if len(e.Message) < 1 {
+		var o jsonOrder
+		if err := json.NewDecoder(res.Body).Decode(&o); err != nil {
 			return nil, err
 		}
-		return nil, fmt.Errorf("[%s]: %s", e.Code, e.Message)
+		return &o, nil
 	}
-	return &o, nil
+	return nil, fmt.Errorf("[%v]: %s", e.Code, e.Message)
 }
 
 func (a *API) NewTestOrder() error {
