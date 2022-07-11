@@ -138,8 +138,6 @@ func (e *Engine) Run() {
 
 	c := NewWebsocketConverter()
 
-	fmt.Println(e.wallet)
-
 	go func() {
 		defer close(d)
 		defer e.orderBookWebsocket.Close()
@@ -169,9 +167,11 @@ func (e *Engine) Run() {
 				for _, t := range e.triangles {
 					if p := e.profitability(t); p > 1.001 {
 						e.makeTrade(t, p)
+						return
 					}
 					if p := e.reverseProfitability(t); p > 1.001 {
 						e.makeReverseTrade(t, p)
+						return
 					}
 				}
 			}

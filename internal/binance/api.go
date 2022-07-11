@@ -168,7 +168,7 @@ func (a *API) NewOrder(symbol, side string, quantity float64, precision int) err
 	}
 	b := make([]byte, 200)
 	res.Body.Read(b)
-	fmt.Println(string(b))
+	fmt.Println(string(b), symbol, side, quantity, q)
 	return nil
 }
 
