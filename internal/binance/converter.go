@@ -16,7 +16,7 @@ func (c *APIConverter) ToSymbols(symbols []jsonSymbol, orderBooks []jsonOrderBoo
 	syms := make([]Symbol, 0)
 	for _, s := range symbols {
 		for _, b := range orderBooks {
-			if i, ok := c.validator.Validate(s, b); ok {
+			if c.validator.Validate(s, b) {
 				bid, err := utils.Stf(b.Bid)
 				if err != nil {
 					return nil, err
@@ -25,7 +25,8 @@ func (c *APIConverter) ToSymbols(symbols []jsonSymbol, orderBooks []jsonOrderBoo
 				if err != nil {
 					return nil, err
 				}
-				sp, err := utils.Stf(s.Filters[i].Precision)
+				// Lot size is at 3rd position in filters slice
+				sp, err := utils.Stf(s.Filters[2].Precision)
 				if err != nil {
 					return nil, err
 				}
