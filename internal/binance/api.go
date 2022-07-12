@@ -49,9 +49,10 @@ type jsonListenKey struct {
 }
 
 type jsonOrder struct {
-	Symbol     string `json:"symbol"`
-	Quantity   string `json:"executedQty"`
-	Commission string `json:"commission"`
+	Symbol   string `json:"symbol"`
+	Quantity string `json:"executedQty"`
+	Code     int    `json:"code"`
+	Message  string `json:"msg"`
 }
 
 type API struct {
@@ -184,9 +185,13 @@ func (a *API) KeepAliveListenKey(listenKey string) error {
 	return nil
 }
 
-func (a *API) NewOrder(symbol, side string, quantity float64, precision int) (*jsonOrder, error) {
-	q := utils.Round(quantity, precision)
-	p := fmt.Sprintf("symbol=%s&side=%s&type=MARKET&quantity=%v&recvWindow=10000&timestamp=%v", symbol, side, q, time.Now().UTC().UnixMilli())
+func (a *API) NewOrder(symbol, side string, quantity float64) (*jsonOrder, error) {
+	var p string
+	if side == "BUY" {
+		p = fmt.Sprintf("symbol=%s&side=%s&type=MARKET&quoteOrderQty=%v&recvWindow=10000&timestamp=%v", symbol, side, quantity, time.Now().UTC().UnixMilli())
+	} else if side == "SELL" {
+		p = fmt.Sprintf("symbol=%s&side=%s&type=MARKET&quantity=%v&recvWindow=10000&timestamp=%v", symbol, side, quantity, time.Now().UTC().UnixMilli())
+	}
 	s := utils.Signature(a.cfg.Binance.SecretKey, p)
 	u := a.factory.NewOrder(p, s)
 
@@ -204,6 +209,9 @@ func (a *API) NewOrder(symbol, side string, quantity float64, precision int) (*j
 	var o jsonOrder
 	if err := json.NewDecoder(res.Body).Decode(&o); err != nil {
 		return nil, err
+	}
+	if len(o.Message) > 0 {
+		return nil, fmt.Errorf("[%v] %s", o.Code, o.Message)
 	}
 	return &o, nil
 }
