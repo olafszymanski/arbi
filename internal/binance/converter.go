@@ -12,7 +12,7 @@ func NewAPIConverter(validator *Validator) *APIConverter {
 	return &APIConverter{validator}
 }
 
-func (c *APIConverter) ToSymbols(symbols []jsonSymbol, orderBooks []jsonOrderBook) ([]Symbol, error) {
+func (c *APIConverter) ToSymbols(symbols []jsonSymbol, orderBooks []jsonOrderBook, tradeFees []jsonTradeFee) ([]Symbol, error) {
 	syms := make([]Symbol, 0)
 	for _, s := range symbols {
 		for _, b := range orderBooks {
@@ -30,14 +30,28 @@ func (c *APIConverter) ToSymbols(symbols []jsonSymbol, orderBooks []jsonOrderBoo
 					return nil, err
 				}
 				p := utils.GetPrecision(sp)
-				syms = append(syms, Symbol{
-					Symbol:    s.Symbol,
-					Base:      s.Base,
-					Quote:     s.Quote,
-					Bid:       bid,
-					Ask:       ask,
-					Precision: p,
-				})
+				for _, t := range tradeFees {
+					if s.Symbol == t.Symbol {
+						m, err := utils.Stf(t.MakerFee)
+						if err != nil {
+							return nil, err
+						}
+						t, err := utils.Stf(t.TakerFee)
+						if err != nil {
+							return nil, err
+						}
+						syms = append(syms, Symbol{
+							Symbol:    s.Symbol,
+							Base:      s.Base,
+							Quote:     s.Quote,
+							Bid:       bid,
+							Ask:       ask,
+							Precision: p,
+							MakerFee:  m,
+							TakerFee:  t,
+						})
+					}
+				}
 			}
 		}
 	}

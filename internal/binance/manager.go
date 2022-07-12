@@ -15,6 +15,11 @@ func (m *DataManager) SymbolExists(key string) (Symbol, bool) {
 	return v.(Symbol), ok
 }
 
+func (m *DataManager) FloatExists(key string) (float64, bool) {
+	v, ok := m.data.Load(key)
+	return v.(float64), ok
+}
+
 func (m *DataManager) LoadFloat(key string) float64 {
 	v, _ := m.data.Load(key)
 	return v.(float64)

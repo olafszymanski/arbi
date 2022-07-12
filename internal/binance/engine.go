@@ -19,6 +19,8 @@ type Symbol struct {
 	Bid       float64
 	Ask       float64
 	Precision int
+	MakerFee  float64
+	TakerFee  float64
 }
 
 type Asset struct {
@@ -49,8 +51,8 @@ func NewEngine(cfg *config.Config, bases []string) *Engine {
 	c := NewAPIConverter(v)
 	g := NewGenerator()
 
-	js, job, ja := getData(a)
-	s, as := convert(c, js, job, ja)
+	js, job, jt, ja := getData(a)
+	s, as := convert(c, js, job, jt, ja)
 	t, d := generate(g, s, as, bases)
 	k, obw, ww := connectWebsockets(f, a)
 
@@ -96,7 +98,7 @@ func (e *Engine) Run() {
 					Precision: s.Precision,
 				})
 				for _, t := range e.triangles {
-					if p := e.profitability(t); p > 0 {
+					if p := e.profitability(t); p > 1.001 {
 						e.makeTrade(t, p)
 						return
 					}
@@ -197,27 +199,51 @@ func (e *Engine) makeTrade(triangle Triangle, profitability float64) {
 	f := e.data.LoadSymbol(triangle.FirstPair())
 	fq := e.data.LoadFloat(f.Quote)
 	fmt.Println(f.Quote, triangle.FirstPair(), fq/f.Ask, utils.Round(fq/f.Ask, f.Precision))
+	fo, err := e.api.NewOrder(triangle.FirstPair(), "BUY", fq/f.Ask, f.Precision)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	fmt.Println(fo)
+	q, err := utils.Stf(fo.Quantity)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	e.data.StoreFloat(f.Base, q*(1-f.MakerFee))
 
-	// o1, err := e.api.NewOrder(triangle.FirstPair(), "BUY", q1, fs.Precision)
-	// if err != nil {
-	// 	log.WithError(err).Error("Error while placing new order")
-	// 	return
-	// }
 	s := e.data.LoadSymbol(triangle.SecondPair())
 	sq := e.data.LoadFloat(s.Quote)
 	fmt.Println(s.Quote, triangle.SecondPair(), sq/s.Ask, utils.Round(sq/s.Ask, s.Precision))
+	so, err := e.api.NewOrder(triangle.SecondPair(), "BUY", sq/s.Ask, s.Precision)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	fmt.Println(so)
+	q, err = utils.Stf(so.Quantity)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	e.data.StoreFloat(s.Base, q*(1-f.MakerFee))
 
-	// if err := e.api.NewOrder(triangle.SecondPair(), "BUY", q2, ss.Precision); err != nil {
-	// 	log.WithError(err).Error("Error while placing new order")
-	// 	return
-	// }
 	t := e.data.LoadSymbol(triangle.ThirdPair())
 	tq := e.data.LoadFloat(t.Base)
 	fmt.Println(t.Base, triangle.ThirdPair(), tq, utils.Round(tq, t.Precision))
-	// if err := e.api.NewOrder(triangle.ThirdPair(), "SELL", q3, ts.Precision); err != nil {
-	// 	log.WithError(err).Error("Error while placing new order")
-	// 	return
-	// }
+	to, err := e.api.NewOrder(triangle.ThirdPair(), "SELL", tq, t.Precision)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	fmt.Println(to)
+	q, err = utils.Stf(to.Quantity)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	e.data.StoreFloat(t.Quote, q*(1-f.MakerFee))
+
 	si := time.Since(ti)
 
 	// e.api.NewTestOrder()
@@ -260,8 +286,7 @@ func (e *Engine) makeTrade(triangle Triangle, profitability float64) {
 // 	fmt.Println("BUY", triangle.ThirdPair(), " ->  SELL", triangle.SecondPair(), " ->  SELL", triangle.FirstPair(), " = ", profitability, " | API:", s)
 // }
 
-func getData(api *API) ([]jsonSymbol, []jsonOrderBook, []jsonAsset) {
-	// TODO: Fetch trading fees
+func getData(api *API) ([]jsonSymbol, []jsonOrderBook, []jsonTradeFee, []jsonAsset) {
 	s, err := api.GetExchangeInfo()
 	if err != nil {
 		log.WithError(err).Panic()
@@ -272,21 +297,26 @@ func getData(api *API) ([]jsonSymbol, []jsonOrderBook, []jsonAsset) {
 		log.WithError(err).Panic()
 	}
 	log.Info("Successfully retrieved order books.")
+	t, err := api.GetTradeFees()
+	if err != nil {
+		log.WithError(err).Panic()
+	}
+	log.Info("Successfully retrieved trade fees.")
 	a, err := api.GetUserAssets()
 	if err != nil {
 		log.WithError(err).Panic()
 	}
 	log.Info("Successfully retrieved user assets.")
-	return s, o, a
+	return s, o, t, a
 }
 
-func convert(c *APIConverter, symbols []jsonSymbol, orderBooks []jsonOrderBook, assets []jsonAsset) ([]Symbol, []Asset) {
-	s, err := c.ToSymbols(symbols, orderBooks)
+func convert(converter *APIConverter, symbols []jsonSymbol, orderBooks []jsonOrderBook, tradeFees []jsonTradeFee, assets []jsonAsset) ([]Symbol, []Asset) {
+	s, err := converter.ToSymbols(symbols, orderBooks, tradeFees)
 	if err != nil {
 		log.WithError(err).Panic()
 	}
 	log.Info("Successfully converted JSON symbols data to symbols.")
-	a, err := c.ToAssets(assets)
+	a, err := converter.ToAssets(assets)
 	if err != nil {
 		log.WithError(err).Panic()
 	}
