@@ -185,7 +185,7 @@ func (e *Engine) profitability(triangle Triangle) float64 {
 	f := e.data.LoadSymbol(triangle.FirstPair())
 	s := e.data.LoadSymbol(triangle.SecondPair())
 	t := e.data.LoadSymbol(triangle.ThirdPair())
-	return 1 / f.Ask * 0.999 * 1 / s.Ask * 0.999 * t.Bid * 0.999
+	return 1 / f.Ask * (1 - f.TakerFee) * 1 / s.Ask * (1 - s.TakerFee) * t.Bid * (1 - t.TakerFee)
 }
 
 // func (e *Engine) reverseProfitability(triangle Triangle) float64 {
@@ -210,7 +210,7 @@ func (e *Engine) makeTrade(triangle Triangle, profitability float64) {
 		log.Error(err)
 		return
 	}
-	e.data.StoreFloat(f.Base, q*(1-f.MakerFee))
+	e.data.StoreFloat(f.Base, q*(1-f.TakerFee))
 
 	s := e.data.LoadSymbol(triangle.SecondPair())
 	sq := e.data.LoadFloat(s.Quote)
@@ -226,7 +226,7 @@ func (e *Engine) makeTrade(triangle Triangle, profitability float64) {
 		log.Error(err)
 		return
 	}
-	e.data.StoreFloat(s.Base, q*(1-f.MakerFee))
+	e.data.StoreFloat(s.Base, q*(1-f.TakerFee))
 
 	t := e.data.LoadSymbol(triangle.ThirdPair())
 	tq := e.data.LoadFloat(t.Base)
@@ -242,7 +242,7 @@ func (e *Engine) makeTrade(triangle Triangle, profitability float64) {
 		log.Error(err)
 		return
 	}
-	e.data.StoreFloat(t.Quote, q*(1-f.MakerFee))
+	e.data.StoreFloat(t.Quote, q*(1-f.TakerFee))
 
 	si := time.Since(ti)
 
