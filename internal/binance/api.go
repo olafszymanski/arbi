@@ -3,7 +3,6 @@ package binance
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -32,6 +31,12 @@ type jsonOrderBook struct {
 	Symbol string `json:"symbol"`
 	Bid    string `json:"bidPrice"`
 	Ask    string `json:"askPrice"`
+}
+
+type jsonTradeFee struct {
+	Symbol   string `json:"symbol"`
+	MakerFee string `json:"makerCommission"`
+	TakerFee string `json:"takerCommission"`
 }
 
 type jsonAsset struct {
@@ -97,6 +102,29 @@ func (a *API) GetOrderBook() ([]jsonOrderBook, error) {
 		return nil, err
 	}
 	return o, nil
+}
+
+func (a *API) GetTradeFees() ([]jsonTradeFee, error) {
+	p := fmt.Sprintf("timestamp=%v", time.Now().UTC().UnixMilli())
+	s := utils.Signature(a.cfg.Binance.SecretKey, p)
+	u := a.factory.TradeFees(p, s)
+
+	r, err := http.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+	r.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
+	res, err := a.client.Do(r)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var t []jsonTradeFee
+	if err := json.NewDecoder(res.Body).Decode(&t); err != nil {
+		return nil, err
+	}
+	return t, nil
 }
 
 func (a *API) GetUserAssets() ([]jsonAsset, error) {
@@ -173,13 +201,8 @@ func (a *API) NewOrder(symbol, side string, quantity float64, precision int) (*j
 	}
 	defer res.Body.Close()
 
-	b, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
 	var o jsonOrder
-	if err := json.Unmarshal(b, &o); err != nil {
+	if err := json.NewDecoder(res.Body).Decode(&o); err != nil {
 		return nil, err
 	}
 	return &o, nil
