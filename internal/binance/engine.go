@@ -56,7 +56,7 @@ func NewEngine(cfg *config.Config, bases []string) *Engine {
 	t, d := generate(g, s, as, bases)
 	k, obw, ww := connectWebsockets(f, a)
 
-	testLatency(a)
+	// testLatency(a)
 
 	log.Info("Successfully initialized the engine.")
 
@@ -96,6 +96,8 @@ func (e *Engine) Run() {
 					Bid:       b,
 					Ask:       a,
 					Precision: s.Precision,
+					MakerFee:  s.MakerFee,
+					TakerFee:  s.TakerFee,
 				})
 				for _, t := range e.triangles {
 					if p := e.profitability(t); p > 1.001 {
@@ -198,8 +200,15 @@ func (e *Engine) makeTrade(triangle Triangle, profitability float64) {
 
 	f := e.data.LoadSymbol(triangle.FirstPair())
 	fq := e.data.LoadFloat(f.Quote)
-	fmt.Println(f.Quote, triangle.FirstPair(), fq/f.Ask, utils.Round(fq/f.Ask, f.Precision))
-	fo, err := e.api.NewOrder(triangle.FirstPair(), "BUY", fq/f.Ask, f.Precision)
+	var frq float64
+	if fq > 1 {
+		frq = utils.Round(fq, f.Precision)
+	} else {
+		frq = utils.Round(fq, 8)
+	}
+	fo, err := e.api.NewOrder(triangle.FirstPair(), "BUY", frq)
+	fmt.Println(f, fq, frq)
+	fmt.Println(fo)
 	if err != nil {
 		log.Error(err)
 		return
@@ -213,8 +222,15 @@ func (e *Engine) makeTrade(triangle Triangle, profitability float64) {
 
 	s := e.data.LoadSymbol(triangle.SecondPair())
 	sq := e.data.LoadFloat(s.Quote)
-	fmt.Println(s.Quote, triangle.SecondPair(), sq/s.Ask, utils.Round(sq/s.Ask, s.Precision))
-	so, err := e.api.NewOrder(triangle.SecondPair(), "BUY", sq/s.Ask, s.Precision)
+	var srq float64
+	if sq > 1 {
+		srq = utils.Round(sq, s.Precision)
+	} else {
+		srq = utils.Round(sq, 8)
+	}
+	so, err := e.api.NewOrder(triangle.SecondPair(), "BUY", srq)
+	fmt.Println(s, sq, srq)
+	fmt.Println(so)
 	if err != nil {
 		log.Error(err)
 		return
@@ -224,12 +240,19 @@ func (e *Engine) makeTrade(triangle Triangle, profitability float64) {
 		log.Error(err)
 		return
 	}
-	e.data.StoreFloat(s.Base, q*(1-f.TakerFee))
+	e.data.StoreFloat(s.Base, q*(1-s.TakerFee))
 
 	t := e.data.LoadSymbol(triangle.ThirdPair())
 	tq := e.data.LoadFloat(t.Base)
-	fmt.Println(t.Base, triangle.ThirdPair(), tq, utils.Round(tq, t.Precision))
-	to, err := e.api.NewOrder(triangle.ThirdPair(), "SELL", tq, t.Precision)
+	var trq float64
+	if tq > 1 {
+		trq = utils.Round(tq, t.Precision)
+	} else {
+		trq = utils.Round(tq, 8)
+	}
+	to, err := e.api.NewOrder(triangle.ThirdPair(), "SELL", trq)
+	fmt.Println(t, tq, trq)
+	fmt.Println(to)
 	if err != nil {
 		log.Error(err)
 		return
@@ -239,14 +262,9 @@ func (e *Engine) makeTrade(triangle Triangle, profitability float64) {
 		log.Error(err)
 		return
 	}
-	e.data.StoreFloat(t.Quote, q*(1-f.TakerFee))
+	e.data.StoreFloat(t.Quote, q*(1-t.TakerFee))
 
 	si := time.Since(ti)
-
-	// // TODO: Remove later
-	// e.Lock()
-	// p := e.profitability(triangle)
-	// e.Unlock()
 
 	fmt.Println("BUY", triangle.FirstPair(), " ->  BUY", triangle.SecondPair(), " ->  SELL", triangle.ThirdPair(), " = ", profitability, " | API:", si)
 }
