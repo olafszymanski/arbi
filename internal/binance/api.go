@@ -3,17 +3,13 @@ package binance
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"time"
 
 	"github.com/olafszymanski/arbi/config"
 	"github.com/olafszymanski/arbi/pkg/utils"
 )
-
-type jsonError struct {
-	Code    int    `json:"code"`
-	Message string `json:"msg"`
-}
 
 type jsonLotSizeFilter struct {
 	Type      string `json:"filterType"`
@@ -48,17 +44,16 @@ type jsonListenKey struct {
 }
 
 type jsonOrder struct {
-	Symbol   string `json:"symbol"`
-	Quantity string `json:"executedQty"`
+	Symbol     string `json:"symbol"`
+	Quantity   string `json:"executedQty"`
+	Commission string `json:"commission"`
 }
 
 type API struct {
-	cfg        *config.Config
-	factory    *URLFactory
-	httpClient *http.Client
+	cfg     *config.Config
+	factory *URLFactory
+	client  *http.Client
 }
-
-// TODO: Add error handling {"code":-2014,"msg":"API-key format invalid."}
 
 func NewAPI(cfg *config.Config, factory *URLFactory) *API {
 	return &API{cfg, factory, &http.Client{}}
@@ -71,24 +66,17 @@ func (a *API) GetExchangeInfo() ([]jsonSymbol, error) {
 	if err != nil {
 		return nil, err
 	}
-	res, err := a.httpClient.Do(r)
+	res, err := a.client.Do(r)
 	if err != nil {
 		return nil, err
 	}
 	defer res.Body.Close()
 
-	var e jsonError
-	if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+	var ei jsonExchangeInfo
+	if err := json.NewDecoder(res.Body).Decode(&ei); err != nil {
 		return nil, err
 	}
-	if len(e.Message) < 1 {
-		var ei jsonExchangeInfo
-		if err := json.NewDecoder(res.Body).Decode(&ei); err != nil {
-			return nil, err
-		}
-		return ei.Symbols, nil
-	}
-	return nil, fmt.Errorf("[%v]: %s", e.Code, e.Message)
+	return ei.Symbols, nil
 }
 
 func (a *API) GetOrderBook() ([]jsonOrderBook, error) {
@@ -98,24 +86,17 @@ func (a *API) GetOrderBook() ([]jsonOrderBook, error) {
 	if err != nil {
 		return nil, err
 	}
-	res, err := a.httpClient.Do(r)
+	res, err := a.client.Do(r)
 	if err != nil {
 		return nil, err
 	}
 	defer res.Body.Close()
 
-	var e jsonError
-	if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+	var o []jsonOrderBook
+	if err := json.NewDecoder(res.Body).Decode(&o); err != nil {
 		return nil, err
 	}
-	if len(e.Message) < 1 {
-		var o []jsonOrderBook
-		if err := json.NewDecoder(res.Body).Decode(&o); err != nil {
-			return nil, err
-		}
-		return o, nil
-	}
-	return nil, fmt.Errorf("[%v]: %s", e.Code, e.Message)
+	return o, nil
 }
 
 func (a *API) GetUserAssets() ([]jsonAsset, error) {
@@ -128,24 +109,17 @@ func (a *API) GetUserAssets() ([]jsonAsset, error) {
 		return nil, err
 	}
 	r.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
-	res, err := a.httpClient.Do(r)
+	res, err := a.client.Do(r)
 	if err != nil {
 		return nil, err
 	}
 	defer res.Body.Close()
 
-	var e jsonError
-	if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+	var as []jsonAsset
+	if err := json.NewDecoder(res.Body).Decode(&as); err != nil {
 		return nil, err
 	}
-	if len(e.Message) < 1 {
-		var as []jsonAsset
-		if err := json.NewDecoder(res.Body).Decode(&a); err != nil {
-			return nil, err
-		}
-		return as, nil
-	}
-	return nil, fmt.Errorf("[%v]: %s", e.Code, e.Message)
+	return as, nil
 }
 
 func (a *API) GetListenKey() (string, error) {
@@ -156,24 +130,17 @@ func (a *API) GetListenKey() (string, error) {
 		return "", err
 	}
 	r.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
-	res, err := a.httpClient.Do(r)
+	res, err := a.client.Do(r)
 	if err != nil {
 		return "", err
 	}
 	defer res.Body.Close()
 
-	var e jsonError
-	if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+	var l jsonListenKey
+	if err := json.NewDecoder(res.Body).Decode(&l); err != nil {
 		return "", err
 	}
-	if len(e.Message) < 1 {
-		var l jsonListenKey
-		if err := json.NewDecoder(res.Body).Decode(&l); err != nil {
-			return "", err
-		}
-		return l.Key, nil
-	}
-	return "", fmt.Errorf("[%v]: %s", e.Code, e.Message)
+	return l.Key, nil
 }
 
 func (a *API) KeepAliveListenKey(listenKey string) error {
@@ -183,7 +150,7 @@ func (a *API) KeepAliveListenKey(listenKey string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := a.httpClient.Do(r); err != nil {
+	if _, err := a.client.Do(r); err != nil {
 		return err
 	}
 	return nil
@@ -200,24 +167,22 @@ func (a *API) NewOrder(symbol, side string, quantity float64, precision int) (*j
 		return nil, err
 	}
 	r.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
-	res, err := a.httpClient.Do(r)
+	res, err := a.client.Do(r)
 	if err != nil {
 		return nil, err
 	}
 	defer res.Body.Close()
 
-	var e jsonError
-	if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+	b, err := ioutil.ReadAll(res.Body)
+	if err != nil {
 		return nil, err
 	}
-	if len(e.Message) < 1 {
-		var o jsonOrder
-		if err := json.NewDecoder(res.Body).Decode(&o); err != nil {
-			return nil, err
-		}
-		return &o, nil
+
+	var o jsonOrder
+	if err := json.Unmarshal(b, &o); err != nil {
+		return nil, err
 	}
-	return nil, fmt.Errorf("[%v]: %s", e.Code, e.Message)
+	return &o, nil
 }
 
 func (a *API) NewTestOrder() error {
@@ -230,7 +195,7 @@ func (a *API) NewTestOrder() error {
 		return err
 	}
 	r.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
-	if _, err := a.httpClient.Do(r); err != nil {
+	if _, err := a.client.Do(r); err != nil {
 		return err
 	}
 	return nil
