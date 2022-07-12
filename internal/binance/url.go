@@ -23,6 +23,10 @@ func (u *URLFactory) OrderBookTickers() string {
 	return "wss://stream.binance.com:9443/ws/!bookTicker"
 }
 
+func (u *URLFactory) TradeFees(params, signature string) string {
+	return fmt.Sprintf("https://api.binance.com/sapi/v1/asset/tradeFee?%s&signature=%s", params, signature)
+}
+
 func (u *URLFactory) UserAssets(params, signature string) string {
 	return fmt.Sprintf("https://api.binance.com/sapi/v3/asset/getUserAsset?%s&signature=%s", params, signature)
 }
@@ -32,6 +36,14 @@ func (u *URLFactory) ListenKey(listenKey string) string {
 		return fmt.Sprintf("https://api.binance.com/api/v3/userDataStream?listenKey=%s", listenKey)
 	}
 	return "https://api.binance.com/api/v3/userDataStream"
+}
+
+func (u *URLFactory) AccountUpdate(listenKey string) string {
+	return fmt.Sprintf("wss://stream.binance.com:9443/ws/%s", listenKey)
+}
+
+func (u *URLFactory) NewOrder(params, signature string) string {
+	return fmt.Sprintf("https://api.binance.com/api/v3/order?%s&signature=%s", params, signature)
 }
 
 func (u *URLFactory) NewTestOrder(params, signature string) string {

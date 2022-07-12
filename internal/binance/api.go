@@ -3,19 +3,24 @@ package binance
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/olafszymanski/arbi/config"
 	"github.com/olafszymanski/arbi/pkg/utils"
-	"github.com/valyala/fasthttp"
 )
 
+type jsonLotSizeFilter struct {
+	Type      string `json:"filterType"`
+	Precision string `json:"stepSize"`
+}
+
 type jsonSymbol struct {
-	Symbol      string   `json:"symbol"`
-	Base        string   `json:"baseAsset"`
-	Quote       string   `json:"quoteAsset"`
-	Precision   uint8    `json:"quoteAssetPrecision"`
-	Permissions []string `json:"permissions"`
+	Symbol      string              `json:"symbol"`
+	Base        string              `json:"baseAsset"`
+	Quote       string              `json:"quoteAsset"`
+	Permissions []string            `json:"permissions"`
+	Filters     []jsonLotSizeFilter `json:"filters"`
 }
 
 type jsonExchangeInfo struct {
@@ -28,6 +33,12 @@ type jsonOrderBook struct {
 	Ask    string `json:"askPrice"`
 }
 
+type jsonTradeFee struct {
+	Symbol   string `json:"symbol"`
+	MakerFee string `json:"makerCommission"`
+	TakerFee string `json:"takerCommission"`
+}
+
 type jsonAsset struct {
 	Asset string `json:"asset"`
 	Free  string `json:"free"`
@@ -37,49 +48,84 @@ type jsonListenKey struct {
 	Key string `json:"listenKey"`
 }
 
+type jsonOrder struct {
+	Symbol   string `json:"symbol"`
+	Quantity string `json:"executedQty"`
+	Code     int    `json:"code"`
+	Message  string `json:"msg"`
+}
+
 type API struct {
 	cfg     *config.Config
 	factory *URLFactory
-	request *fasthttp.Request
+	client  *http.Client
 }
 
 func NewAPI(cfg *config.Config, factory *URLFactory) *API {
-	r := fasthttp.AcquireRequest()
-	return &API{cfg, factory, r}
+	return &API{cfg, factory, &http.Client{}}
 }
 
 func (a *API) GetExchangeInfo() ([]jsonSymbol, error) {
 	u := a.factory.ExchangeInfo()
 
-	a.request.Header.SetMethod("GET")
-	a.request.SetRequestURI(u)
-	r := fasthttp.Response{}
-	if err := fasthttp.Do(a.request, &r); err != nil {
+	r, err := http.NewRequest("GET", u, nil)
+	if err != nil {
 		return nil, err
 	}
+	res, err := a.client.Do(r)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
 
-	var e jsonExchangeInfo
-	if err := json.Unmarshal(r.Body(), &e); err != nil {
+	var ei jsonExchangeInfo
+	if err := json.NewDecoder(res.Body).Decode(&ei); err != nil {
 		return nil, err
 	}
-	return e.Symbols, nil
+	return ei.Symbols, nil
 }
 
 func (a *API) GetOrderBook() ([]jsonOrderBook, error) {
 	u := a.factory.OrderBook()
 
-	a.request.Header.SetMethod("GET")
-	a.request.SetRequestURI(u)
-	r := fasthttp.Response{}
-	if err := fasthttp.Do(a.request, &r); err != nil {
+	r, err := http.NewRequest("GET", u, nil)
+	if err != nil {
 		return nil, err
 	}
+	res, err := a.client.Do(r)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
 
 	var o []jsonOrderBook
-	if err := json.Unmarshal(r.Body(), &o); err != nil {
+	if err := json.NewDecoder(res.Body).Decode(&o); err != nil {
 		return nil, err
 	}
 	return o, nil
+}
+
+func (a *API) GetTradeFees() ([]jsonTradeFee, error) {
+	p := fmt.Sprintf("timestamp=%v", time.Now().UTC().UnixMilli())
+	s := utils.Signature(a.cfg.Binance.SecretKey, p)
+	u := a.factory.TradeFees(p, s)
+
+	r, err := http.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+	r.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
+	res, err := a.client.Do(r)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var t []jsonTradeFee
+	if err := json.NewDecoder(res.Body).Decode(&t); err != nil {
+		return nil, err
+	}
+	return t, nil
 }
 
 func (a *API) GetUserAssets() ([]jsonAsset, error) {
@@ -87,16 +133,19 @@ func (a *API) GetUserAssets() ([]jsonAsset, error) {
 	s := utils.Signature(a.cfg.Binance.SecretKey, p)
 	u := a.factory.UserAssets(p, s)
 
-	a.request.Header.SetMethod("POST")
-	a.request.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
-	a.request.SetRequestURI(u)
-	r := fasthttp.Response{}
-	if err := fasthttp.Do(a.request, &r); err != nil {
+	r, err := http.NewRequest("POST", u, nil)
+	if err != nil {
 		return nil, err
 	}
+	r.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
+	res, err := a.client.Do(r)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
 
 	var as []jsonAsset
-	if err := json.Unmarshal(r.Body(), &as); err != nil {
+	if err := json.NewDecoder(res.Body).Decode(&as); err != nil {
 		return nil, err
 	}
 	return as, nil
@@ -105,15 +154,19 @@ func (a *API) GetUserAssets() ([]jsonAsset, error) {
 func (a *API) GetListenKey() (string, error) {
 	u := a.factory.ListenKey("")
 
-	a.request.Header.SetMethod("GET")
-	a.request.SetRequestURI(u)
-	r := fasthttp.Response{}
-	if err := fasthttp.Do(a.request, &r); err != nil {
+	r, err := http.NewRequest("POST", u, nil)
+	if err != nil {
 		return "", err
 	}
+	r.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
+	res, err := a.client.Do(r)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
 
 	var l jsonListenKey
-	if err := json.Unmarshal(r.Body(), &l); err != nil {
+	if err := json.NewDecoder(res.Body).Decode(&l); err != nil {
 		return "", err
 	}
 	return l.Key, nil
@@ -122,24 +175,59 @@ func (a *API) GetListenKey() (string, error) {
 func (a *API) KeepAliveListenKey(listenKey string) error {
 	u := a.factory.ListenKey(listenKey)
 
-	a.request.Header.SetMethod("PUT")
-	a.request.SetRequestURI(u)
-	if err := fasthttp.Do(a.request, nil); err != nil {
+	r, err := http.NewRequest("PUT", u, nil)
+	if err != nil {
+		return err
+	}
+	if _, err := a.client.Do(r); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (a *API) NewTestOrder() (bool, error) {
+func (a *API) NewOrder(symbol, side string, quantity float64) (*jsonOrder, error) {
+	var p string
+	if side == "BUY" {
+		p = fmt.Sprintf("symbol=%s&side=%s&type=MARKET&quoteOrderQty=%v&recvWindow=10000&timestamp=%v", symbol, side, quantity, time.Now().UTC().UnixMilli())
+	} else if side == "SELL" {
+		p = fmt.Sprintf("symbol=%s&side=%s&type=MARKET&quantity=%v&recvWindow=10000&timestamp=%v", symbol, side, quantity, time.Now().UTC().UnixMilli())
+	}
+	s := utils.Signature(a.cfg.Binance.SecretKey, p)
+	u := a.factory.NewOrder(p, s)
+
+	r, err := http.NewRequest("POST", u, nil)
+	if err != nil {
+		return nil, err
+	}
+	r.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
+	res, err := a.client.Do(r)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var o jsonOrder
+	if err := json.NewDecoder(res.Body).Decode(&o); err != nil {
+		return nil, err
+	}
+	if len(o.Message) > 0 {
+		return nil, fmt.Errorf("[%v] %s", o.Code, o.Message)
+	}
+	return &o, nil
+}
+
+func (a *API) NewTestOrder() error {
 	p := fmt.Sprintf("symbol=BTCUSDT&side=BUY&type=MARKET&quantity=1&recvWindow=10000&timestamp=%v", time.Now().UTC().UnixMilli())
 	s := utils.Signature(a.cfg.Binance.SecretKey, p)
 	u := a.factory.NewTestOrder(p, s)
 
-	a.request.Header.SetMethod("POST")
-	a.request.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
-	a.request.SetRequestURI(u)
-	if err := fasthttp.Do(a.request, nil); err != nil {
-		return false, err
+	r, err := http.NewRequest("POST", u, nil)
+	if err != nil {
+		return err
 	}
-	return true, nil
+	r.Header.Add("X-MBX-APIKEY", a.cfg.Binance.ApiKey)
+	if _, err := a.client.Do(r); err != nil {
+		return err
+	}
+	return nil
 }

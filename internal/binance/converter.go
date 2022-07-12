@@ -1,6 +1,8 @@
 package binance
 
-import "github.com/olafszymanski/arbi/pkg/utils"
+import (
+	"github.com/olafszymanski/arbi/pkg/utils"
+)
 
 type APIConverter struct {
 	validator *Validator
@@ -10,7 +12,7 @@ func NewAPIConverter(validator *Validator) *APIConverter {
 	return &APIConverter{validator}
 }
 
-func (c *APIConverter) ToSymbols(symbols []jsonSymbol, orderBooks []jsonOrderBook) ([]Symbol, error) {
+func (c *APIConverter) ToSymbols(symbols []jsonSymbol, orderBooks []jsonOrderBook, tradeFees []jsonTradeFee) ([]Symbol, error) {
 	syms := make([]Symbol, 0)
 	for _, s := range symbols {
 		for _, b := range orderBooks {
@@ -23,30 +25,53 @@ func (c *APIConverter) ToSymbols(symbols []jsonSymbol, orderBooks []jsonOrderBoo
 				if err != nil {
 					return nil, err
 				}
-				syms = append(syms, Symbol{
-					Symbol:    s.Symbol,
-					Base:      s.Base,
-					Quote:     s.Quote,
-					Precision: s.Precision,
-					Bid:       bid,
-					Ask:       ask,
-				})
+				// Lot size is at 3rd position in filters slice
+				sp, err := utils.Stf(s.Filters[2].Precision)
+				if err != nil {
+					return nil, err
+				}
+				p := utils.GetPrecision(sp)
+				for _, t := range tradeFees {
+					if s.Symbol == t.Symbol {
+						m, err := utils.Stf(t.MakerFee)
+						if err != nil {
+							return nil, err
+						}
+						t, err := utils.Stf(t.TakerFee)
+						if err != nil {
+							return nil, err
+						}
+						syms = append(syms, Symbol{
+							Symbol:    s.Symbol,
+							Base:      s.Base,
+							Quote:     s.Quote,
+							Bid:       bid,
+							Ask:       ask,
+							Precision: p,
+							MakerFee:  m,
+							TakerFee:  t,
+						})
+					}
+				}
 			}
 		}
 	}
 	return syms, nil
 }
 
-func (c *APIConverter) ToWallet(assets []jsonAsset) (Wallet, error) {
-	w := make(Wallet)
-	for _, a := range assets {
-		f, err := utils.Stf(a.Free)
+func (c *APIConverter) ToAssets(assets []jsonAsset) ([]Asset, error) {
+	a := make([]Asset, 0)
+	for _, as := range assets {
+		f, err := utils.Stf(as.Free)
 		if err != nil {
 			return nil, err
 		}
-		w[a.Asset] = f
+		a = append(a, Asset{
+			Symbol: as.Asset,
+			Amount: f,
+		})
 	}
-	return w, nil
+	return a, nil
 }
 
 type WebsocketConverter struct {

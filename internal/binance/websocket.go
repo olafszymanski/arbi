@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	log "github.com/sirupsen/logrus"
 )
 
 type jsonOrderBookTicker struct {
@@ -44,7 +45,8 @@ func NewOrderBookWebsocket(factory *URLFactory) (*OrderBookWebsocket, error) {
 func (w *OrderBookWebsocket) Read() (*jsonOrderBookTicker, error) {
 	var o jsonOrderBookTicker
 	if err := w.connection.ReadJSON(&o); err != nil {
-		if errors.Is(err, syscall.ECONNRESET) || websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+		if errors.Is(err, syscall.ECONNRESET) || err.Error() == "websocket: close 1006 (abnormal closure): unexpected EOF" {
+			log.Warn("Order book websocket disconnected, trying to reconnect...")
 			if err := w.reconnect(); err != nil {
 				return nil, err
 			}
@@ -71,25 +73,25 @@ func (w *OrderBookWebsocket) reconnect() error {
 
 type WalletWebsocket struct {
 	connection *websocket.Conn
-	factory    *URLFactory
+	url        string
 }
 
-func NewWalletWebsocket(factory *URLFactory) (*WalletWebsocket, error) {
-	// TODO: Add websocket factory url
-	c, _, err := websocket.DefaultDialer.Dial("", nil)
+func NewWalletWebsocket(factory *URLFactory, listenKey string) (*WalletWebsocket, error) {
+	u := factory.AccountUpdate(listenKey)
+	c, _, err := websocket.DefaultDialer.Dial(u, nil)
 	if err != nil {
 		return nil, err
 	}
 	c.SetPingHandler(func(appData string) error {
 		return c.WriteControl(websocket.PongMessage, []byte(nil), time.Now().Add(5*time.Second))
 	})
-	return &WalletWebsocket{c, factory}, nil
+	return &WalletWebsocket{c, u}, nil
 }
 
 func (w *WalletWebsocket) Read() ([]jsonBalance, error) {
 	var o jsonAccountUpdate
 	if err := w.connection.ReadJSON(&o); err != nil {
-		if errors.Is(err, syscall.ECONNRESET) || websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+		if errors.Is(err, syscall.ECONNRESET) || err.Error() == "websocket: close 1006 (abnormal closure): unexpected EOF" {
 			if err := w.reconnect(); err != nil {
 				return nil, err
 			}
@@ -106,8 +108,7 @@ func (w *WalletWebsocket) Close() {
 }
 
 func (w *WalletWebsocket) reconnect() error {
-	// TODO: Update here
-	c, _, err := websocket.DefaultDialer.Dial("", nil)
+	c, _, err := websocket.DefaultDialer.Dial(w.url, nil)
 	if err != nil {
 		return err
 	}
