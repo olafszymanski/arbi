@@ -1,6 +1,8 @@
 package binance
 
-import "sync"
+import (
+	"sync"
+)
 
 type DataManager struct {
 	data sync.Map
@@ -12,7 +14,10 @@ func NewDataManager(data sync.Map) *DataManager {
 
 func (m *DataManager) SymbolExists(key string) (Symbol, bool) {
 	v, ok := m.data.Load(key)
-	return v.(Symbol), ok
+	if v != nil {
+		return v.(Symbol), ok
+	}
+	return Symbol{}, ok
 }
 
 func (m *DataManager) FloatExists(key string) (float64, bool) {

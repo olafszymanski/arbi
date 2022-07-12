@@ -204,7 +204,6 @@ func (e *Engine) makeTrade(triangle Triangle, profitability float64) {
 		log.Error(err)
 		return
 	}
-	fmt.Println(fo)
 	q, err := utils.Stf(fo.Quantity)
 	if err != nil {
 		log.Error(err)
@@ -220,7 +219,6 @@ func (e *Engine) makeTrade(triangle Triangle, profitability float64) {
 		log.Error(err)
 		return
 	}
-	fmt.Println(so)
 	q, err = utils.Stf(so.Quantity)
 	if err != nil {
 		log.Error(err)
@@ -236,7 +234,6 @@ func (e *Engine) makeTrade(triangle Triangle, profitability float64) {
 		log.Error(err)
 		return
 	}
-	fmt.Println(to)
 	q, err = utils.Stf(to.Quantity)
 	if err != nil {
 		log.Error(err)
@@ -245,10 +242,6 @@ func (e *Engine) makeTrade(triangle Triangle, profitability float64) {
 	e.data.StoreFloat(t.Quote, q*(1-f.TakerFee))
 
 	si := time.Since(ti)
-
-	// e.api.NewTestOrder()
-	// e.api.NewTestOrder()
-	// e.api.NewTestOrder()
 
 	// // TODO: Remove later
 	// e.Lock()
